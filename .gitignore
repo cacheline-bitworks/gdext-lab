@@ -1,0 +1,38 @@
+# Build artifacts
+*.os
+*.o
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+bin/
+addons/*/bin/
+
+# Godot cache
+.godot/
+.import/
+*.translation
+
+# SCons
+.sconsign.dblite
+.sconf_temp/
+config.log
+
+# .NET
+obj/
+*.user
+*.suo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated C# bindings (regenerated via bindgen plugin)
+demo/GDExtensionBindgen/
