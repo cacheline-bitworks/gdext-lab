@@ -36,3 +36,9 @@ Thumbs.db
 
 # Generated C# bindings (regenerated via bindgen plugin)
 demo/GDExtensionBindgen/
+
+# Generated documentation C++ (rebuilt on every scons run)
+src/gen/
+
+# Symlinked addon (see README for setup)
+demo/addons/

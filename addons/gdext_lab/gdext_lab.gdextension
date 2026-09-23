@@ -1,0 +1,16 @@
+[configuration]
+
+entry_symbol = "gdext_lab_library_init"
+compatibility_minimum = "4.4"
+reloadable = true
+
+[libraries]
+
+linux.x86_64.single.debug = "./bin/linux/libgdext_lab.linux.template_debug.x86_64.so"
+linux.x86_64.single.release = "./bin/linux/libgdext_lab.linux.template_release.x86_64.so"
+
+windows.x86_64.single.debug = "./bin/windows/libgdext_lab.windows.template_debug.x86_64.dll"
+windows.x86_64.single.release = "./bin/windows/libgdext_lab.windows.template_release.x86_64.dll"
+
+macos.single.debug = "./bin/macos/libgdext_lab.macos.template_debug.dylib"
+macos.single.release = "./bin/macos/libgdext_lab.macos.template_release.dylib"
