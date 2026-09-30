@@ -8,6 +8,7 @@
 #include "example_class.h"
 #include "frame_data.h"
 #include "simulated_entity.h"
+#include "tire_model.h"
 #include "simulation_scheduler.h"
 
 using namespace godot;
@@ -21,6 +22,8 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level)
 	GDREGISTER_CLASS(SimulatedEntity);
 	GDREGISTER_CLASS(SimulationScheduler);
 	GDREGISTER_CLASS(FrameData);
+    GDREGISTER_ABSTRACT_CLASS(TireModel);
+	GDREGISTER_CLASS(TireModelV1);
 }
 
 void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {
