@@ -19,7 +19,8 @@ struct WheelInput {
 	float friction_coefficient = 1.0f;   // dimensionless, surface grip
 	float wheel_radius = 0.33f;          // m, for converting torque <-> force
 	float velocity_longitudinal = 0.0f;  // m/s, at contact patch
-	float velocity_lateral = 0.0f;       // m/s, at contact patch
+	float velocity_lateral = 0.0f;    
+	float steer_angle = 0.0f;   // m/s, at contact patch
 };
 
 //
