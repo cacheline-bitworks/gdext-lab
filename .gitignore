@@ -42,3 +42,6 @@ src/gen/
 
 # Symlinked addon (see README for setup)
 demo/addons/
+
+# Large binary assets (car models, textures, audio) - not tracked in git
+demo/assets/
