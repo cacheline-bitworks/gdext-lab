@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://t2a_debug.gd" id="1_t2a"]
+
+[node name="T2aDebug" type="Node"]
+script = ExtResource("1_t2a")
