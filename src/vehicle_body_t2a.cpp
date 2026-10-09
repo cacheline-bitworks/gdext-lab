@@ -225,16 +225,17 @@ void VehicleBodyT2a::step(double p_delta) {
 
 	// --- 14. Integrate yaw ---
 	const float yaw_inertia = m_mass * m_wheel_base * m_wheel_base / 12.0f;
-	const float linear_speed = m_velocity.length();
-	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);
-	const float yaw_damping = -m_yaw_rate * 200.0f * damping_scale;
-	const float mz_damped = mz_body + yaw_damping;
-	const float yaw_accel = mz_damped / yaw_inertia;
-	m_yaw_rate += yaw_accel * dt;
-	m_yaw += m_yaw_rate * dt;
-	if (m_yaw_rate > 20.0f) m_yaw_rate = 20.0f;
-	if (m_yaw_rate < -20.0f) m_yaw_rate = -20.0f;
-	if (m_velocity.length() < 1.0f) m_yaw_rate = 0.0f;
+	const float linear_speed = m_velocity.length();                                 //               '.__.' 
+	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);               //                |..|
+	const float yaw_damping = -m_yaw_rate * 200.0f * damping_scale;                 //            '..[ __ ]..'
+	const float mz_damped = mz_body + yaw_damping;                                  //              (  ..  ) 
+	const float yaw_accel = mz_damped / yaw_inertia;                                //            .''( .. )''.
+	m_yaw_rate += yaw_accel * dt;                                                   //                {''}
+	m_yaw += m_yaw_rate * dt;                                                       //                  |
+	if (m_yaw_rate > 20.0f) m_yaw_rate = 20.0f;                                     //
+                                                                                    //
+	if (m_yaw_rate < -20.0f) m_yaw_rate = -20.0f;                                   //
+	if (m_velocity.length() < 1.0f) m_yaw_rate = 0.0f;                              //
 
 	// --- 15. Integrate heave ---
 	const float heave_force = f_front_total + f_rear_total;
