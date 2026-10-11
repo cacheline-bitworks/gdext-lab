@@ -14,6 +14,8 @@
 #include "tire_model_v2.h"
 #include "vehicle_body_t2a.h"
 #include "vehicle_body_t2b.h"
+#include "vehicle_body_t2c.h"
+#include "vehicle_body_t3.h"
 
 using namespace godot;
 
@@ -32,6 +34,8 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level)
 	GDREGISTER_CLASS(TireModelV2);
 	GDREGISTER_CLASS(VehicleBodyT2a);
 	GDREGISTER_CLASS(VehicleBodyT2b);
+	GDREGISTER_CLASS(VehicleBodyT2c);
+	GDREGISTER_CLASS(VehicleBodyT3);
 }
 
 void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {

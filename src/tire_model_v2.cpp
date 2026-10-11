@@ -154,8 +154,7 @@ WheelOutput TireModelV2::step(const WheelInput &p_input) {
 
 	// 3. Compute raw forces (each already includes load sensitivity + falloff)
 	float fx = compute_force_x(output.slip_ratio, p_input.vertical_load, p_input.friction_coefficient);
-	float fy = compute_force_y(output.slip_angle, p_input.vertical_load, p_input.friction_coefficient);
-
+	float fy = -compute_force_y(output.slip_angle, p_input.vertical_load, p_input.friction_coefficient);	
 	// 4. Friction ellipse constraint
 	//    The tire has one friction budget. If Fx and Fy together exceed it,
 	//    both must be scaled down. Peak force in either direction is
