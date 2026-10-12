@@ -43,6 +43,13 @@ protected:
 	float m_wheel_radius = 0.33f;
 	float m_wheel_inertia = 1.5f;
 
+   // --- Aerodynamics ---
+	float m_drag_coefficient = 0.30f;      // Cd
+	float m_downforce_coefficient = 0.00f; // Cl (negative = lift, positive = downforce)
+	float m_frontal_area = 2.20f;          // m²
+
+
+
 private:
 	// --- Suspension (per corner) ---
 	CornerConfigT2c m_front_left;
@@ -100,6 +107,14 @@ public:
 	Vector3 get_velocity() const;
 	Quaternion get_orientation() const;
 	Vector3 get_angular_velocity() const;
+
+    void set_drag_coefficient(float p_val);
+	float get_drag_coefficient() const;
+	void set_downforce_coefficient(float p_val);
+	float get_downforce_coefficient() const;
+	void set_frontal_area(float p_val);
+	float get_frontal_area() const;
+    
 
 	// Per-corner diagnostics
 	float get_corner_load(int p_index) const;

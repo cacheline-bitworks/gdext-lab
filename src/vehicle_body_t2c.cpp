@@ -37,6 +37,18 @@ void VehicleBodyT2c::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_steer"), &VehicleBodyT2c::get_steer);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "steer"), "set_steer", "get_steer");
 
+    ClassDB::bind_method(D_METHOD("set_drag_coefficient", "value"), &VehicleBodyT2c::set_drag_coefficient);
+	ClassDB::bind_method(D_METHOD("get_drag_coefficient"), &VehicleBodyT2c::get_drag_coefficient);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "drag_coefficient"), "set_drag_coefficient", "get_drag_coefficient");
+
+	ClassDB::bind_method(D_METHOD("set_downforce_coefficient", "value"), &VehicleBodyT2c::set_downforce_coefficient);
+	ClassDB::bind_method(D_METHOD("get_downforce_coefficient"), &VehicleBodyT2c::get_downforce_coefficient);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "downforce_coefficient"), "set_downforce_coefficient", "get_downforce_coefficient");
+
+	ClassDB::bind_method(D_METHOD("set_frontal_area", "value"), &VehicleBodyT2c::set_frontal_area);
+	ClassDB::bind_method(D_METHOD("get_frontal_area"), &VehicleBodyT2c::get_frontal_area);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "frontal_area"), "set_frontal_area", "get_frontal_area");
+
     ClassDB::bind_method(D_METHOD("get_pitch"), &VehicleBodyT2c::get_pitch);
 	ClassDB::bind_method(D_METHOD("get_roll"), &VehicleBodyT2c::get_roll);
 
@@ -78,6 +90,15 @@ float VehicleBodyT2c::get_speed() const { return m_velocity.length(); }
 Vector3 VehicleBodyT2c::get_velocity() const { return m_velocity; }
 Quaternion VehicleBodyT2c::get_orientation() const { return m_orientation; }
 Vector3 VehicleBodyT2c::get_angular_velocity() const { return m_angular_velocity; }
+
+void VehicleBodyT2c::set_drag_coefficient(float p_val) { m_drag_coefficient = p_val; }
+float VehicleBodyT2c::get_drag_coefficient() const { return m_drag_coefficient; }
+
+void VehicleBodyT2c::set_downforce_coefficient(float p_val) { m_downforce_coefficient = p_val; }
+float VehicleBodyT2c::get_downforce_coefficient() const { return m_downforce_coefficient; }
+
+void VehicleBodyT2c::set_frontal_area(float p_val) { m_frontal_area = p_val; }
+float VehicleBodyT2c::get_frontal_area() const { return m_frontal_area; }
 
 float VehicleBodyT2c::get_yaw() const {
 	// Extract yaw from the quaternion. With body frame (X=forward, Y=up),
@@ -165,6 +186,31 @@ void VehicleBodyT2c::step(double p_delta) {
 	// Gravity acts at CG, so no torque contribution
 	Vector3 total_force_world(0.0f, -m_mass * GRAVITY, 0.0f);
 	Vector3 total_torque_world(0.0f, 0.0f, 0.0f);
+
+    	// --- Aerodynamic forces ---
+	// Both scale with v². Drag opposes velocity; downforce pushes along
+	// the chassis's local up axis (which may be tilted by roll/pitch).
+	constexpr float AIR_DENSITY = 1.225f;
+	const float speed_sq = m_velocity.length_squared();
+	if (speed_sq > 0.01f) {
+		const float q = 0.5f * AIR_DENSITY * speed_sq;   // dynamic pressure
+
+		// Drag: opposite to velocity direction
+		const float drag_mag = q * m_drag_coefficient * m_frontal_area;
+		const Vector3 vel_dir = m_velocity.normalized();
+		total_force_world += -vel_dir * drag_mag;
+
+		// Downforce: along chassis local -Y (i.e., pushing chassis into ground)
+		// Positive downforce coefficient means "produces downforce."
+		const float down_mag = q * m_downforce_coefficient * m_frontal_area;
+		const Vector3 local_down = m_orientation.xform(Vector3(0.0f, -1.0f, 0.0f));
+		total_force_world += local_down * down_mag;
+
+		// Downforce is applied at the center of pressure, which we approximate
+		// as the center of gravity for now. No torque contribution.
+	}
+
+
 
 	// --- 2. Angular velocity in world frame (for corner velocity) ---
 	Vector3 omega_world = m_orientation.xform(m_angular_velocity);
@@ -363,19 +409,7 @@ void VehicleBodyT2c::step(double p_delta) {
 		if (m_omega[i] < 0.0f) m_omega[i] = 0.0f;
 		if (m_omega[i] > 200.0f) m_omega[i] = 200.0f;
 	}
-    		// Diagnostic
-	static float debug_timer = 0.0f;
-	debug_timer += dt;
-	if (debug_timer >= 1.0f) {
-		debug_timer = 0.0f;
-		const Vector3 vel_body = m_orientation.inverse().xform(m_velocity);
-		const Vector3 fwd_world = m_orientation.xform(Vector3(1, 0, 0));
-		print_line(vformat(
-			"[DBG] v_body=(%.1f, %.1f) | fwd_world=(%.2f, %.2f, %.2f) | |F| = %.0f N",
-			vel_body.x, vel_body.z,
-			fwd_world.x, fwd_world.y, fwd_world.z,
-						total_force_world.length()));
-	}
+    
 }
 
 float VehicleBodyT2c::get_steer_angle_for_corner(int p_index) const {
