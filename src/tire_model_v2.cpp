@@ -154,7 +154,14 @@ WheelOutput TireModelV2::step(const WheelInput &p_input) {
 
 	// 3. Compute raw forces (each already includes load sensitivity + falloff)
 	float fx = compute_force_x(output.slip_ratio, p_input.vertical_load, p_input.friction_coefficient);
-	float fy = -compute_force_y(output.slip_angle, p_input.vertical_load, p_input.friction_coefficient);	
+	float fy = -compute_force_y(output.slip_angle, p_input.vertical_load, p_input.friction_coefficient);
+	
+	// Camber thrust: a cambered tire produces lateral force in the direction
+	// of the tilt. A wheel leaning right (positive camber_angle in body frame)
+	// pushes the car to the right. Coefficient is roughly 0.5-1.5 for racing tires.
+	constexpr float CAMBER_STIFFNESS = 0.8f;
+	fy += CAMBER_STIFFNESS * p_input.camber_angle * p_input.vertical_load;
+
 	// 4. Friction ellipse constraint
 	//    The tire has one friction budget. If Fx and Fy together exceed it,
 	//    both must be scaled down. Peak force in either direction is

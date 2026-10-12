@@ -9,9 +9,9 @@ constexpr float GRAVITY = 9.81f;
 // Body frame: X forward, Y up, Z right
 // Yaw rotates about Y, roll about X, pitch about Z
 
-// ----------------------------------------------------------------------------
+// 
 // Constructor
-// ----------------------------------------------------------------------------
+// 
 VehicleBodyT2c::VehicleBodyT2c() {
 	for (int i = 0; i < 4; i++) {
 		m_tires[i].instantiate();
@@ -21,9 +21,9 @@ VehicleBodyT2c::VehicleBodyT2c() {
 	m_orientation = Quaternion();  // identity
 }
 
-// ----------------------------------------------------------------------------
+// 
 // _bind_methods
-// ----------------------------------------------------------------------------
+// 
 void VehicleBodyT2c::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_throttle", "value"), &VehicleBodyT2c::set_throttle);
 	ClassDB::bind_method(D_METHOD("get_throttle"), &VehicleBodyT2c::get_throttle);
@@ -40,6 +40,9 @@ void VehicleBodyT2c::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_pitch"), &VehicleBodyT2c::get_pitch);
 	ClassDB::bind_method(D_METHOD("get_roll"), &VehicleBodyT2c::get_roll);
 
+    ClassDB::bind_method(D_METHOD("get_steer_angle_for_corner", "index"),
+			&VehicleBodyT2c::get_steer_angle_for_corner);
+
 	ClassDB::bind_method(D_METHOD("get_yaw"), &VehicleBodyT2c::get_yaw);
 	ClassDB::bind_method(D_METHOD("get_speed"), &VehicleBodyT2c::get_speed);
 	ClassDB::bind_method(D_METHOD("get_velocity"), &VehicleBodyT2c::get_velocity);
@@ -50,9 +53,9 @@ void VehicleBodyT2c::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_corner_compression", "index"), &VehicleBodyT2c::get_corner_compression);
 }
 
-// ----------------------------------------------------------------------------
+// 
 // Driver inputs
-// ----------------------------------------------------------------------------
+// 
 void VehicleBodyT2c::set_throttle(float p_val) {
 	m_throttle = p_val < 0.0f ? 0.0f : (p_val > 1.0f ? 1.0f : p_val);
 }
@@ -68,9 +71,9 @@ void VehicleBodyT2c::set_steer(float p_val) {
 }
 float VehicleBodyT2c::get_steer() const { return m_steer_input; }
 
-// ----------------------------------------------------------------------------
+// 
 // State accessors
-// ----------------------------------------------------------------------------
+// 
 float VehicleBodyT2c::get_speed() const { return m_velocity.length(); }
 Vector3 VehicleBodyT2c::get_velocity() const { return m_velocity; }
 Quaternion VehicleBodyT2c::get_orientation() const { return m_orientation; }
@@ -149,9 +152,9 @@ float VehicleBodyT2c::get_roll() const {
 	return std::atan2(up_world.z, up_world.y);
 }
 
-// ----------------------------------------------------------------------------
+// 
 // The physics step
-// ----------------------------------------------------------------------------
+// 
 void VehicleBodyT2c::step(double p_delta) {
 	const float dt = (float)p_delta;
 	if (dt <= 0.0f) return;
@@ -241,7 +244,7 @@ void VehicleBodyT2c::step(double p_delta) {
 		const Vector3 contact_vel_body = m_orientation.inverse().xform(contact_vel_world);
 
 		// --- Build WheelInput ---
-		const float corner_steer = (i < 2) ? steer_angle : 0.0f;
+       	const float corner_steer = corner_steer_angle(i, steer_angle);
 
 		WheelInput in;
 		in.steer_angle = corner_steer;
@@ -255,6 +258,7 @@ void VehicleBodyT2c::step(double p_delta) {
 		in.wheel_radius = m_wheel_radius;
 		in.velocity_longitudinal = contact_vel_body.x;
 		in.velocity_lateral = contact_vel_body.z;
+        in.camber_angle = corner_camber_angle(i);
 
 		tire_out[i] = m_tires[i]->step(in);
 
@@ -370,10 +374,22 @@ void VehicleBodyT2c::step(double p_delta) {
 			"[DBG] v_body=(%.1f, %.1f) | fwd_world=(%.2f, %.2f, %.2f) | |F| = %.0f N",
 			vel_body.x, vel_body.z,
 			fwd_world.x, fwd_world.y, fwd_world.z,
-			total_force_world.length()));
+						total_force_world.length()));
 	}
 }
 
+float VehicleBodyT2c::get_steer_angle_for_corner(int p_index) const {
+	const float base = m_steer_input * m_max_steer_angle;
+	return corner_steer_angle(p_index, base);
+}
+
 float VehicleBodyT2c::extra_corner_force(int, float, float) const {
+	return 0.0f;
+}
+
+float VehicleBodyT2c::corner_steer_angle(int p_corner_index, float p_base_steer) const {
+	return (p_corner_index < 2) ? p_base_steer : 0.0f;
+}
+float VehicleBodyT2c::corner_camber_angle(int) const {
 	return 0.0f;
 }

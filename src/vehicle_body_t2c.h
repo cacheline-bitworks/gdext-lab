@@ -10,60 +10,32 @@
 
 using namespace godot;
 
-// 
-// CornerConfig - per-corner suspension parameters (same as T2b)
-// 
 struct CornerConfigT2c {
 	float spring_rate = 65000.0f;
 	float damper_bump = 4200.0f;
 	float damper_rebound = 8500.0f;
 };
 
-// 
+// ----------------------------------------------------------------------------
 // VehicleBodyT2c - full 6-DOF rigid body chassis
-// 
-// T2a and T2b use small-angle approximations: yaw, pitch, and roll are
-// tracked as independent scalars, and heave is a vertical offset from
-// equilibrium. This works until the body tilts enough that the angles
-// interact, or until the body rotates more than a few degrees.
-//
-// T2c tracks the chassis as a true rigid body:
-//   - Position (world frame)
-//   - Orientation (Quaternion)
-//   - Linear velocity (world frame)
-//   - Angular velocity (body frame, rad/s)
-//   - Diagonal inertia tensor (Ixx, Iyy, Izz in body frame)
-//
-// Torques computed in world frame are transformed into body frame, then
-// integrated via Euler's rigid body equations. Gravity acts on the actual
-// CG position regardless of orientation.
-//
-// Body frame convention (same as T2a/T2b):
-//   X = forward
-//   Y = up
-//   Z = right
-//
-// With this convention:
-//   Rotation about X = roll
-//   Rotation about Y = yaw
-//   Rotation about Z = pitch
-// 
+// ----------------------------------------------------------------------------
+// See docs/patterns/05-vehicle-body-t2.md for the design.
+// ----------------------------------------------------------------------------
 class VehicleBodyT2c : public SimulatedEntity {
 	GDCLASS(VehicleBodyT2c, SimulatedEntity)
 
 	// --- Chassis ---
 	float m_mass = 1200.0f;
-	float m_eq_height = 0.5f;              // CG height above ground at equilibrium
-	Vector3 m_velocity;                     // world frame, m/s
-	Vector3 m_angular_velocity;             // body frame, rad/s
-	Quaternion m_orientation;               // body -> world rotation
+	float m_eq_height = 0.5f;
+	Vector3 m_velocity;
+	Vector3 m_angular_velocity;
+	Quaternion m_orientation;
 
-	// Diagonal inertia tensor in body frame (kg·m²)
-	// Roll (about X), Yaw (about Y), Pitch (about Z)
 	Vector3 m_inertia = Vector3(400.0f, 3000.0f, 1800.0f);
 	Vector3 m_inv_inertia = Vector3(1.0f / 400.0f, 1.0f / 3000.0f, 1.0f / 1800.0f);
 
-	// --- Geometry ---
+protected:
+	// --- Geometry (subclasses need these for steering, aero, etc.) ---
 	float m_wheel_base = 2.6f;
 	float m_track_width = 1.6f;
 	float m_cg_to_front = 1.3f;
@@ -71,6 +43,7 @@ class VehicleBodyT2c : public SimulatedEntity {
 	float m_wheel_radius = 0.33f;
 	float m_wheel_inertia = 1.5f;
 
+private:
 	// --- Suspension (per corner) ---
 	CornerConfigT2c m_front_left;
 	CornerConfigT2c m_front_right;
@@ -96,6 +69,17 @@ protected:
 	// corner. Called once per corner per tick. Base returns 0.
 	virtual float extra_corner_force(int p_corner_index, float p_compression,
 			float p_opposite_compression) const;
+
+	// Subclass hook. Return the actual steer angle (rad) for this corner
+	// given the base steering input. Default: front wheels get the base
+	// angle, rear wheels get 0.
+	virtual float corner_steer_angle(int p_corner_index, float p_base_steer) const;
+
+    // Subclass hook. Return the camber angle (rad) for this corner.
+	// Body frame convention: positive = top tilts toward +Z (right),
+	// negative = top tilts toward -Z (left). Default: 0.
+	virtual float corner_camber_angle(int p_corner_index) const;
+
 public:
 	VehicleBodyT2c();
 	~VehicleBodyT2c() override = default;
@@ -109,10 +93,10 @@ public:
 	float get_steer() const;
 
 	// State accessors
-	float get_yaw() const;                      // extract yaw from quaternion
+	float get_yaw() const;
+	float get_pitch() const;
+	float get_roll() const;
 	float get_speed() const;
-    float get_pitch() const;   // nose up/down
-	float get_roll() const;    // side to side
 	Vector3 get_velocity() const;
 	Quaternion get_orientation() const;
 	Vector3 get_angular_velocity() const;
@@ -120,6 +104,10 @@ public:
 	// Per-corner diagnostics
 	float get_corner_load(int p_index) const;
 	float get_corner_compression(int p_index) const;
+    // Diagnostic: returns the actual steer angle (rad) that will be applied
+	// to corner p_index given the current steer input. Useful for verifying
+	// Ackermann geometry and toe.
+	float get_steer_angle_for_corner(int p_index) const;
 
 	void step(double p_delta) override;
 };
