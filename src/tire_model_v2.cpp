@@ -151,17 +151,33 @@ WheelOutput TireModelV2::step(const WheelInput &p_input) {
 	// 2. Slip angle
 	const float safe_vx = std::fmax(std::fabs(vx), SLIP_EPSILON);
 	output.slip_angle = std::atan2(p_input.velocity_lateral, safe_vx) - p_input.steer_angle;
+    
 
-	// 3. Compute raw forces (each already includes load sensitivity + falloff)
-	float fx = compute_force_x(output.slip_ratio, p_input.vertical_load, p_input.friction_coefficient);
-	float fy = -compute_force_y(output.slip_angle, p_input.vertical_load, p_input.friction_coefficient);
-	
+
+		float fx = compute_force_x(output.slip_ratio, p_input.vertical_load, p_input.friction_coefficient);
+	float slip_fy = -compute_force_y(output.slip_angle, p_input.vertical_load, p_input.friction_coefficient);
+
+	// Faked camber grip scaling.
+	// Real tires gain peak lateral grip with negative camber up to about -3 deg,
+	// then fall off. We approximate: +15% peak at 3 deg, floor at -10% past 6 deg.
+	const float abs_camber = std::fabs(p_input.camber_angle);
+	constexpr float OPTIMAL_CAMBER = 0.052f;  // 3 degrees in radians
+	float camber_grip = 1.0f;
+	if (abs_camber <= OPTIMAL_CAMBER) {
+		camber_grip = 1.0f + 0.15f * (abs_camber / OPTIMAL_CAMBER);
+	} else {
+		camber_grip = 1.15f - 0.25f * ((abs_camber - OPTIMAL_CAMBER) / OPTIMAL_CAMBER);
+		if (camber_grip < 0.90f) camber_grip = 0.90f;
+	}
+	slip_fy *= camber_grip;
+
 	// Camber thrust: a cambered tire produces lateral force in the direction
-	// of the tilt. A wheel leaning right (positive camber_angle in body frame)
-	// pushes the car to the right. Coefficient is roughly 0.5-1.5 for racing tires.
+	// of the tilt. Separate from the grip scaling above.
 	constexpr float CAMBER_STIFFNESS = 0.8f;
-	fy += CAMBER_STIFFNESS * p_input.camber_angle * p_input.vertical_load;
+	const float camber_thrust = CAMBER_STIFFNESS * p_input.camber_angle * p_input.vertical_load;
 
+	float fy = slip_fy + camber_thrust;
+	
 	// 4. Friction ellipse constraint
 	//    The tire has one friction budget. If Fx and Fy together exceed it,
 	//    both must be scaled down. Peak force in either direction is
