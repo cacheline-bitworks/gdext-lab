@@ -9,18 +9,18 @@ constexpr float GRAVITY = 9.81f;
 // Corner index constants for clarity
 // 0 = front-left, 1 = front-right, 2 = rear-left, 3 = rear-right
 
-// ----------------------------------------------------------------------------
+// 
 // Constructor
-// ----------------------------------------------------------------------------
+// 
 VehicleBodyT2b::VehicleBodyT2b() {
 	for (int i = 0; i < 4; i++) {
 		m_tires[i].instantiate();
 	}
 }
 
-// ----------------------------------------------------------------------------
+// 
 // _bind_methods
-// ----------------------------------------------------------------------------
+// 
 void VehicleBodyT2b::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_throttle", "value"), &VehicleBodyT2b::set_throttle);
 	ClassDB::bind_method(D_METHOD("get_throttle"), &VehicleBodyT2b::get_throttle);
@@ -46,9 +46,9 @@ void VehicleBodyT2b::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_corner_compression", "index"), &VehicleBodyT2b::get_corner_compression);
 }
 
-// ----------------------------------------------------------------------------
+// 
 // Driver inputs
-// ----------------------------------------------------------------------------
+// 
 void VehicleBodyT2b::set_throttle(float p_val) {
 	m_throttle = p_val < 0.0f ? 0.0f : (p_val > 1.0f ? 1.0f : p_val);
 }
@@ -64,9 +64,9 @@ void VehicleBodyT2b::set_steer(float p_val) {
 }
 float VehicleBodyT2b::get_steer() const { return m_steer_input; }
 
-// ----------------------------------------------------------------------------
+// 
 // State accessors
-// ----------------------------------------------------------------------------
+// 
 float VehicleBodyT2b::get_yaw() const { return m_yaw; }
 float VehicleBodyT2b::get_yaw_rate() const { return m_yaw_rate; }
 float VehicleBodyT2b::get_speed() const { return m_velocity.length(); }
@@ -117,13 +117,17 @@ float VehicleBodyT2b::get_corner_load(int p_index) const {
 	return load < 0.0f ? 0.0f : load;
 }
 
-// ----------------------------------------------------------------------------
+// 
 // The physics step
-// ----------------------------------------------------------------------------
+// 
 void VehicleBodyT2b::step(double p_delta) {
 	const float dt = (float)p_delta;
-	if (dt <= 0.0f) return;
-
+	if (dt <= 0.0f) 	
+    for (int i = 0; i < 4; i++) {
+		if (!m_tires[i].is_valid()) {
+			return;
+		}
+	}
 	// --- 1. Body-frame velocity ---
 	const float cy_b = std::cos(-m_yaw);
 	const float sy_b = std::sin(-m_yaw);

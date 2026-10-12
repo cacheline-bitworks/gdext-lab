@@ -21,7 +21,13 @@ struct WheelInput {
 	float velocity_longitudinal = 0.0f;  // m/s, at contact patch
 	float velocity_lateral = 0.0f;    
 	float steer_angle = 0.0f;
-	float camber_angle = 0.0f;   // rad, negative = top leaning inward
+	
+	// Camber angle in the body frame (X forward, Y up, Z right).
+	// Positive = top of wheel tilts toward +Z (right).
+	// Negative = top of wheel tilts toward -Z (left).
+	// Note: this is NOT the automotive convention (where negative = top
+	// inward). Callers must convert.
+	float camber_angle = 0.0f;
 };
 
 //

@@ -87,9 +87,10 @@ Vector3 VehicleBodyT1::get_velocity() const {
 // 
 void VehicleBodyT1::step(double p_delta) {
 	const float dt = (float)p_delta;
-	if (dt <= 0.0f) {
+	if (dt <= 0.0f)
+		if (!m_front_tire.is_valid() || !m_rear_tire.is_valid()) {
 		return;
-	}
+	} 
 
 	// --- 1. Transform world velocity into body frame ---
 	const float cy = std::cos(-m_yaw);
@@ -225,21 +226,4 @@ void VehicleBodyT1::step(double p_delta) {
 	if (m_rear_omega > 500.0f) m_rear_omega = 500.0f;
 
 	m_last_speed = m_velocity.length();
-
-	// --- Diagnostic ---
-	static float debug_timer = 0.0f;
-	debug_timer += dt;
-	if (debug_timer >= 1.0f) {
-		debug_timer = 0.0f;
-		print_line(vformat(
-			"[DBG] vx=%.1f vz_body=%.2f yaw_rate=%.3f steer=%.3f | "
-			"F_omega=%.1f R_omega=%.1f | "
-			"F_Fx=%.0f R_Fx=%.0f | F_Fy=%.0f R_Fy=%.0f | "
-			"F_slip=%.3f R_slip=%.3f",
-			vx_body, vz_body, m_yaw_rate, steer_angle,
-			m_front_omega, m_rear_omega,
-			front_out.force_x, rear_out.force_x,
-			front_out.force_y, rear_out.force_y,
-			front_out.slip_ratio, rear_out.slip_ratio));
-	}
 }

@@ -178,7 +178,12 @@ float VehicleBodyT2c::get_roll() const {
 // 
 void VehicleBodyT2c::step(double p_delta) {
 	const float dt = (float)p_delta;
-	if (dt <= 0.0f) return;
+	if (dt <= 0.0f) 
+     	for (int i = 0; i < 4; i++) {
+		if (!m_tires[i].is_valid()) {
+			return;
+		}
+	}
 
 	const Vector3 world_up(0.0f, 1.0f, 0.0f);
 

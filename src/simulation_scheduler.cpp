@@ -1,9 +1,13 @@
 #include "simulation_scheduler.h"
 
-#include <godot_cpp/core/math.hpp>
+#include <algorithm>
+
+#include <godot_cpp/core/math.hpp> 
 
 namespace {
-    constexpr int MAX_STEPS_PER_TICK = 4;
+constexpr float MIN_SAFE_FREQ = 0.01f;   // Hz, avoids 1/f = inf downstream
+constexpr double MAX_FRAME_DELTA = 0.25; // s, clamps huge hitches
+constexpr int MAX_STEPS_PER_TICK = 4;    // cap to avoid spiral of death
 }
 
 void SimulationScheduler::_bind_methods() {
@@ -40,15 +44,29 @@ void SimulationScheduler::_bind_methods() {
 }
 
 void SimulationScheduler::set_max_frequency(float p_freq) {
-    m_max_frequency = p_freq > 0.0f ? p_freq : 0.0f;
+	if (p_freq < MIN_SAFE_FREQ) {
+		p_freq = MIN_SAFE_FREQ;
+	}
+	m_max_frequency = p_freq;
+	if (m_min_frequency > m_max_frequency) {
+		m_min_frequency = m_max_frequency;
+	}
 }
+
+
 
 float SimulationScheduler::get_max_frequency() const {
     return m_max_frequency;
 }
 
 void SimulationScheduler::set_min_frequency(float p_freq) {
-    m_min_frequency = p_freq > 0.0f ? p_freq : 0.0f;
+	if (p_freq < MIN_SAFE_FREQ) {
+		p_freq = MIN_SAFE_FREQ;
+	}
+	if (p_freq > m_max_frequency) {
+		p_freq = m_max_frequency;
+	}
+	m_min_frequency = p_freq;
 }
 
 float SimulationScheduler::get_min_frequency() const {
@@ -72,9 +90,17 @@ Vector3 SimulationScheduler::get_reference_position() const {
 }
 
 void SimulationScheduler::add_entity(const Ref<SimulatedEntity> &p_entity) {
-    if (p_entity.is_valid()) {
-        m_entities.push_back(p_entity);
-    }
+	if (!p_entity.is_valid()) {
+		return;
+	}
+	// Reject duplicates. Adding the same entity twice would step it
+	// 2x per tick, giving it an effective 2x frequency.
+	for (const Ref<SimulatedEntity> &existing : m_entities) {
+		if (existing == p_entity) {
+			return;
+		}
+	}
+	m_entities.push_back(p_entity);
 }
 
 void SimulationScheduler::remove_entity(const Ref<SimulatedEntity> &p_entity) {
@@ -126,7 +152,12 @@ float SimulationScheduler::get_average_frequency() const {
 }
 
 void SimulationScheduler::_physics_process(double p_delta) {
-    m_total_ticks++;
+	// Clamp huge deltas (scene loads, editor hitches). Without this, a
+	// 2-second stall banks 2 seconds of accumulated time per entity.
+	if (p_delta > MAX_FRAME_DELTA) {
+		p_delta = MAX_FRAME_DELTA;
+	}
+	m_total_ticks++;
     m_last_step_count = 0;
 
     const float max_dist_sq = m_max_distance * m_max_distance;
@@ -158,7 +189,7 @@ void SimulationScheduler::_physics_process(double p_delta) {
         }
         entity->set_current_frequency(freq);
 
-        const float interval = 1.0f / freq;
+        const float interval = 1.0f / freq;  //time between steps 
 
         // 3. Accumulate time.
         entity->set_accumulator(entity->get_accumulator() + (float)p_delta);

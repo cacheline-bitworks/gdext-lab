@@ -6,17 +6,17 @@ namespace {
 constexpr float GRAVITY = 9.81f;
 }
 
-// ----------------------------------------------------------------------------
+//
 // Constructor
-// ----------------------------------------------------------------------------
+//
 VehicleBodyT2a::VehicleBodyT2a() {
 	m_front_tire.instantiate();
 	m_rear_tire.instantiate();
 }
 
-// ----------------------------------------------------------------------------
+//
 // _bind_methods
-// ----------------------------------------------------------------------------
+//
 void VehicleBodyT2a::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_throttle", "value"), &VehicleBodyT2a::set_throttle);
 	ClassDB::bind_method(D_METHOD("get_throttle"), &VehicleBodyT2a::get_throttle);
@@ -46,9 +46,9 @@ void VehicleBodyT2a::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_rear_load"), &VehicleBodyT2a::get_rear_load);
 }
 
-// ----------------------------------------------------------------------------
+//
 // Driver inputs
-// ----------------------------------------------------------------------------
+//
 void VehicleBodyT2a::set_throttle(float p_val) {
 	m_throttle = p_val < 0.0f ? 0.0f : (p_val > 1.0f ? 1.0f : p_val);
 }
@@ -67,9 +67,9 @@ void VehicleBodyT2a::set_steer(float p_val) {
 
 float VehicleBodyT2a::get_steer() const { return m_steer_input; }
 
-// ----------------------------------------------------------------------------
+//
 // State accessors
-// ----------------------------------------------------------------------------
+//
 float VehicleBodyT2a::get_yaw() const { return m_yaw; }
 float VehicleBodyT2a::get_yaw_rate() const { return m_yaw_rate; }
 float VehicleBodyT2a::get_speed() const { return m_velocity.length(); }
@@ -103,12 +103,15 @@ float VehicleBodyT2a::get_rear_load() const {
 	return load < 0.0f ? 0.0f : load;
 }
 
-// ----------------------------------------------------------------------------
+//
 // The physics step
-// ----------------------------------------------------------------------------
+//
 void VehicleBodyT2a::step(double p_delta) {
 	const float dt = (float)p_delta;
-	if (dt <= 0.0f) return;
+	if (dt <= 0.0f) 	
+	if (!m_front_tire.is_valid() || !m_rear_tire.is_valid()) {
+		return;
+	} 
 
 	// --- 1. Body-frame velocity ---
 	const float cy = std::cos(-m_yaw);
@@ -222,21 +225,24 @@ void VehicleBodyT2a::step(double p_delta) {
 	// --- 13. Integrate horizontal ---
 	m_velocity.x += (fx_world / m_mass) * dt;
 	m_velocity.z += (fz_world / m_mass) * dt;
-
 	// --- 14. Integrate yaw ---
+	// Uniform-rod approximation for yaw inertia. Real cars have a measured
+	// value; this is close enough for T2a.
 	const float yaw_inertia = m_mass * m_wheel_base * m_wheel_base / 12.0f;
-	const float linear_speed = m_velocity.length();                                 //               '.__.' 
-	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);               //                |..|
-	const float yaw_damping = -m_yaw_rate * 200.0f * damping_scale;                 //            '..[ __ ]..'
-	const float mz_damped = mz_body + yaw_damping;                                  //              (  ..  ) 
-	const float yaw_accel = mz_damped / yaw_inertia;                                //            .''( .. )''.
-	m_yaw_rate += yaw_accel * dt;                                                   //                {''}
-	m_yaw += m_yaw_rate * dt;                                                       //                  |
-	if (m_yaw_rate > 20.0f) m_yaw_rate = 20.0f;                                     //
-                                                                                    //
-	if (m_yaw_rate < -20.0f) m_yaw_rate = -20.0f;                                   //
-	if (m_velocity.length() < 1.0f) m_yaw_rate = 0.0f;                              //
 
+	// Nonlinear yaw damping. Damping should be small at speed (the car
+	// rotates freely) and large at low speed (a stopped car does not spin
+	// indefinitely). The 1/(1+speed) falloff produces exactly that.
+	const float linear_speed = m_velocity.length();
+	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);
+	const float yaw_damping = -m_yaw_rate * 200.0f * damping_scale;
+	const float mz_damped = mz_body + yaw_damping;
+	const float yaw_accel = mz_damped / yaw_inertia;
+	m_yaw_rate += yaw_accel * dt;
+	m_yaw += m_yaw_rate * dt;
+	if (m_yaw_rate > 20.0f) m_yaw_rate = 20.0f;
+	if (m_yaw_rate < -20.0f) m_yaw_rate = -20.0f;
+	if (m_velocity.length() < 1.0f) m_yaw_rate = 0.0f;
 	// --- 15. Integrate heave ---
 	const float heave_force = f_front_total + f_rear_total;
 	const float heave_accel = heave_force / m_mass;
