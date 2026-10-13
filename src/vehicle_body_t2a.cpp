@@ -28,9 +28,6 @@ void VehicleBodyT2a::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_rear_load"), &VehicleBodyT2a::get_rear_load);
 }
 
-// -
-// State accessors
-// -
 float VehicleBodyT2a::get_yaw() const { return m_yaw; }
 float VehicleBodyT2a::get_yaw_rate() const { return m_yaw_rate; }
 float VehicleBodyT2a::get_speed() const { return m_velocity.length(); }
@@ -63,9 +60,6 @@ float VehicleBodyT2a::get_rear_load() const {
 	return load < 0.0f ? 0.0f : load;
 }
 
-// -
-// The physics step
-// -
 void VehicleBodyT2a::step(double p_delta) {
 	const float dt = (float)p_delta;
 	if (dt <= 0.0f) {
@@ -75,9 +69,10 @@ void VehicleBodyT2a::step(double p_delta) {
 		return;
 	}
 
-	// --- 1. Body-frame velocity ---
-	const float cy = std::cos(-m_yaw);
-	const float sy = std::sin(-m_yaw);
+	// --- 1. World velocity -> body frame ---
+	// Matches Godot's quaternion convention (T2c).
+	const float cy = std::cos(m_yaw);
+	const float sy = std::sin(m_yaw);
 	const float vx_body = cy * m_velocity.x - sy * m_velocity.z;
 	const float vz_body = sy * m_velocity.x + cy * m_velocity.z;
 
@@ -91,7 +86,7 @@ void VehicleBodyT2a::step(double p_delta) {
 	const float front_vel = m_heave_velocity + m_pitch_rate * m_cg_to_front;
 	const float rear_vel = m_heave_velocity - m_pitch_rate * m_cg_to_rear;
 
-	// --- 4. Spring and damper forces ---
+	// --- 4. Spring + damper forces ---
 	const float f_spring_front = m_suspension.spring_rate_front * front_dev;
 	const float f_spring_rear = m_suspension.spring_rate_rear * rear_dev;
 
@@ -138,29 +133,30 @@ void VehicleBodyT2a::step(double p_delta) {
 	rear_input.velocity_longitudinal = vx_body;
 	rear_input.velocity_lateral = vz_body + m_yaw_rate * m_cg_to_rear;
 
-	// --- 7. Step tires ---
+	// --- 7. Tires ---
 	const WheelOutput front_out = m_front_tire->step(front_input);
 	const WheelOutput rear_out = m_rear_tire->step(rear_input);
 
 	// --- 8. Sum forces ---
 	const float fx_body = front_out.force_x + rear_out.force_x;
 	const float fy_body = front_out.force_y * std::cos(steer_angle) + rear_out.force_y;
-	const float mz_body = rear_out.force_y * m_cg_to_rear - front_out.force_y * std::cos(steer_angle) * m_cg_to_front;
+	const float mz_body = rear_out.force_y * m_cg_to_rear
+			- front_out.force_y * std::cos(steer_angle) * m_cg_to_front;
 
 	// --- 9. Body -> world ---
 	const float cy_w = std::cos(m_yaw);
 	const float sy_w = std::sin(m_yaw);
-	const float fx_world = cy_w * fx_body - sy_w * fy_body;
-	const float fz_world = sy_w * fx_body + cy_w * fy_body;
+	const float fx_world = cy_w * fx_body + sy_w * fy_body;
+	const float fz_world = -sy_w * fx_body + cy_w * fy_body;
 
-	// --- 10. Resistance (from base) ---
+	// --- 10. Resistance (base) ---
 	apply_resistance(dt);
 
-	// --- 11. Linear integration ---
+	// --- 11. Linear ---
 	m_velocity.x += (fx_world / m_mass) * dt;
 	m_velocity.z += (fz_world / m_mass) * dt;
 
-	// --- 12. Yaw integration ---
+	// --- 12. Yaw ---
 	const float yaw_inertia = m_mass * m_wheel_base * m_wheel_base / 12.0f;
 	const float linear_speed = m_velocity.length();
 	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);
@@ -172,13 +168,13 @@ void VehicleBodyT2a::step(double p_delta) {
 	if (m_yaw_rate < -20.0f) m_yaw_rate = -20.0f;
 	if (m_velocity.length() < 1.0f) m_yaw_rate = 0.0f;
 
-	// --- 13. Heave integration ---
+	// --- 13. Heave ---
 	const float heave_force = f_front_total + f_rear_total;
 	const float heave_accel = heave_force / m_mass;
 	m_heave_velocity += heave_accel * dt;
 	m_heave += m_heave_velocity * dt;
 
-	// --- 14. Pitch integration ---
+	// --- 14. Pitch ---
 	const float pitch_moment_susp = f_front_total * m_cg_to_front
 			- f_rear_total * m_cg_to_rear;
 	const float pitch_moment_tire = fx_body * m_cg_height;
@@ -193,7 +189,7 @@ void VehicleBodyT2a::step(double p_delta) {
 	m_position.x += m_velocity.x * dt;
 	m_position.z += m_velocity.z * dt;
 
-	// --- 16. Wheel spin (from base) ---
+	// --- 16. Wheel spin (base) ---
 	integrate_wheel_spin(0, front_out.force_x,
 			m_throttle * m_max_engine_torque * 0.5f,
 			m_brake_input * m_max_brake_torque * 0.7f, dt);

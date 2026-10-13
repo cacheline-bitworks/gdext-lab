@@ -6,7 +6,8 @@ namespace {
 constexpr float GRAVITY = 9.81f;
 }
 
-// Corner helper — returns (x_offset, z_offset) in body frame
+// Body-frame corner position: (x_offset, z_offset)
+// Order: 0=FL, 1=FR, 2=RL, 3=RR
 static void get_corner_position(int idx, float cg_front, float cg_rear,
 		float track_width, float &out_x, float &out_z) {
 	switch (idx) {
@@ -81,13 +82,12 @@ void VehicleBodyT2b::step(double p_delta) {
 		if (!m_tires[i].is_valid()) return;
 	}
 
-	// --- 1. Body-frame velocity ---
-	// Yaw convention: positive yaw rotates the body toward world -Z
-	// (matching T2c's quaternion convention).
+	// --- 1. World velocity -> body frame ---
+	// Matches Godot's quaternion convention (T2c).
 	const float cy_b = std::cos(m_yaw);
 	const float sy_b = std::sin(m_yaw);
-	const float vx_body = cy_b * m_velocity.x + sy_b * m_velocity.z;
-	const float vz_body = -sy_b * m_velocity.x + cy_b * m_velocity.z;
+	const float vx_body = cy_b * m_velocity.x - sy_b * m_velocity.z;
+	const float vz_body = sy_b * m_velocity.x + cy_b * m_velocity.z;
 
 	// --- 2. Steering ---
 	const float steer_angle = m_steer_input * m_max_steer_angle;
@@ -171,7 +171,7 @@ void VehicleBodyT2b::step(double p_delta) {
 		M_yaw -= Fz_body_i * x_pos[i];
 	}
 
-	// --- 7. World-frame forces ---
+	// --- 7. Body forces -> world ---
 	const float cy_w = std::cos(m_yaw);
 	const float sy_w = std::sin(m_yaw);
 	const float fx_world = cy_w * total_Fx_body + sy_w * total_Fz_body;
@@ -192,10 +192,10 @@ void VehicleBodyT2b::step(double p_delta) {
 	}
 	M_roll += -m_cg_height * total_Fz_body;
 
-	// --- 9. Resistance (from base) ---
+	// --- 9. Resistance (base) ---
 	apply_resistance(dt);
 
-	// --- 10. Linear integration ---
+	// --- 10. Linear ---
 	m_velocity.x += (fx_world / m_mass) * dt;
 	m_velocity.z += (fz_world / m_mass) * dt;
 
@@ -237,7 +237,7 @@ void VehicleBodyT2b::step(double p_delta) {
 	m_position.x += m_velocity.x * dt;
 	m_position.z += m_velocity.z * dt;
 
-	// --- 16. Wheel spin (from base) ---
+	// --- 16. Wheel spin (base) ---
 	for (int i = 0; i < 4; i++) {
 		const float brake_torque = (i < 2)
 				? m_brake_input * m_max_brake_torque * 0.35f
