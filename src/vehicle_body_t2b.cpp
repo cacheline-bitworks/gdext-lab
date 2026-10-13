@@ -82,10 +82,12 @@ void VehicleBodyT2b::step(double p_delta) {
 	}
 
 	// --- 1. Body-frame velocity ---
-	const float cy_b = std::cos(-m_yaw);
-	const float sy_b = std::sin(-m_yaw);
-	const float vx_body = cy_b * m_velocity.x - sy_b * m_velocity.z;
-	const float vz_body = sy_b * m_velocity.x + cy_b * m_velocity.z;
+	// Yaw convention: positive yaw rotates the body toward world -Z
+	// (matching T2c's quaternion convention).
+	const float cy_b = std::cos(m_yaw);
+	const float sy_b = std::sin(m_yaw);
+	const float vx_body = cy_b * m_velocity.x + sy_b * m_velocity.z;
+	const float vz_body = -sy_b * m_velocity.x + cy_b * m_velocity.z;
 
 	// --- 2. Steering ---
 	const float steer_angle = m_steer_input * m_max_steer_angle;
@@ -166,14 +168,14 @@ void VehicleBodyT2b::step(double p_delta) {
 
 		total_Fx_body += Fx_body_i;
 		total_Fz_body += Fz_body_i;
-		M_yaw += Fz_body_i * x_pos[i];
+		M_yaw -= Fz_body_i * x_pos[i];
 	}
 
 	// --- 7. World-frame forces ---
 	const float cy_w = std::cos(m_yaw);
 	const float sy_w = std::sin(m_yaw);
-	const float fx_world = cy_w * total_Fx_body - sy_w * total_Fz_body;
-	const float fz_world = sy_w * total_Fx_body + cy_w * total_Fz_body;
+	const float fx_world = cy_w * total_Fx_body + sy_w * total_Fz_body;
+	const float fz_world = -sy_w * total_Fx_body + cy_w * total_Fz_body;
 
 	// --- 8. Moments ---
 	float M_pitch = 0.0f;

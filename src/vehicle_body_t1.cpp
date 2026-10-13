@@ -32,11 +32,13 @@ void VehicleBodyT1::step(double p_delta) {
 		return;
 	}
 
-	// --- 1. Body-frame velocity ---
-	const float cy = std::cos(-m_yaw);
-	const float sy = std::sin(-m_yaw);
-	const float vx_body = cy * m_velocity.x - sy * m_velocity.z;
-	const float vz_body = sy * m_velocity.x + cy * m_velocity.z;
+	// --- 1. World velocity -> body frame ---
+	// Yaw convention: positive yaw rotates the body toward world -Z
+	// (matching T2c's quaternion convention).
+	const float cy = std::cos(m_yaw);
+	const float sy = std::sin(m_yaw);
+	const float vx_body = cy * m_velocity.x + sy * m_velocity.z;
+	const float vz_body = -sy * m_velocity.x + cy * m_velocity.z;
 
 	// --- 2. Steering ---
 	const float steer_angle = m_steer_input * m_max_steer_angle;
@@ -46,7 +48,7 @@ void VehicleBodyT1::step(double p_delta) {
 	const float front_load = total_load * (m_cg_to_rear / m_wheel_base);
 	const float rear_load = total_load * (m_cg_to_front / m_wheel_base);
 
-	// --- 4. Build WheelInput ---
+	// --- 4. Wheel inputs ---
 	WheelInput front_input;
 	front_input.steer_angle = steer_angle;
 	front_input.angular_velocity = m_omega[0];
@@ -69,30 +71,30 @@ void VehicleBodyT1::step(double p_delta) {
 	rear_input.velocity_longitudinal = vx_body;
 	rear_input.velocity_lateral = vz_body + m_yaw_rate * m_cg_to_rear;
 
-	// --- 5. Step tires ---
+	// --- 5. Tires ---
 	const WheelOutput front_out = m_front_tire->step(front_input);
 	const WheelOutput rear_out = m_rear_tire->step(rear_input);
 
 	// --- 6. Sum forces in body frame ---
 	const float fx_body = front_out.force_x + rear_out.force_x;
 	const float fy_body = front_out.force_y * std::cos(steer_angle) + rear_out.force_y;
-	const float mz_body = front_out.force_y * std::cos(steer_angle) * m_cg_to_front
-			- rear_out.force_y * m_cg_to_rear;
+	const float mz_body = rear_out.force_y * m_cg_to_rear
+			- front_out.force_y * std::cos(steer_angle) * m_cg_to_front;
 
-	// --- 7. Body -> world ---
+	// --- 7. Body forces -> world frame ---
 	const float cy_w = std::cos(m_yaw);
 	const float sy_w = std::sin(m_yaw);
-	const float fx_world = cy_w * fx_body - sy_w * fy_body;
-	const float fz_world = sy_w * fx_body + cy_w * fy_body;
+	const float fx_world = cy_w * fx_body + sy_w * fy_body;
+	const float fz_world = -sy_w * fx_body + cy_w * fy_body;
 
-	// --- 8. Resistance (from VehicleBody base) ---
+	// --- 8. Resistance (from base) ---
 	apply_resistance(dt);
 
-	// --- 9. Integrate linear ---
+	// --- 9. Linear integration ---
 	m_velocity.x += (fx_world / m_mass) * dt;
 	m_velocity.z += (fz_world / m_mass) * dt;
 
-	// --- 10. Integrate yaw ---
+	// --- 10. Yaw integration ---
 	const float yaw_inertia = m_mass * m_wheel_base * m_wheel_base / 12.0f;
 	const float linear_speed = m_velocity.length();
 	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);
@@ -104,11 +106,11 @@ void VehicleBodyT1::step(double p_delta) {
 	if (m_yaw_rate < -20.0f) m_yaw_rate = -20.0f;
 	if (m_velocity.length() < 1.0f) m_yaw_rate = 0.0f;
 
-	// --- 11. Integrate position ---
+	// --- 11. Position ---
 	m_position.x += m_velocity.x * dt;
 	m_position.z += m_velocity.z * dt;
 
-	// --- 12. Wheel spin (from VehicleBody base) ---
+	// --- 12. Wheel spin (from base) ---
 	integrate_wheel_spin(0, front_out.force_x,
 			m_throttle * m_max_engine_torque * 0.5f,
 			m_brake_input * m_max_brake_torque * 0.7f, dt);

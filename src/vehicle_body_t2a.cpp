@@ -145,8 +145,7 @@ void VehicleBodyT2a::step(double p_delta) {
 	// --- 8. Sum forces ---
 	const float fx_body = front_out.force_x + rear_out.force_x;
 	const float fy_body = front_out.force_y * std::cos(steer_angle) + rear_out.force_y;
-	const float mz_body = front_out.force_y * std::cos(steer_angle) * m_cg_to_front
-			- rear_out.force_y * m_cg_to_rear;
+	const float mz_body = rear_out.force_y * m_cg_to_rear - front_out.force_y * std::cos(steer_angle) * m_cg_to_front;
 
 	// --- 9. Body -> world ---
 	const float cy_w = std::cos(m_yaw);
