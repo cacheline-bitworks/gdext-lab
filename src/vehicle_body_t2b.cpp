@@ -144,6 +144,7 @@ void VehicleBodyT2b::step(double p_delta) {
 		const float vz_corner = vz_body - m_yaw_rate * x_pos[i];
 
 		WheelInput in;
+        in.dt = dt;
 		in.steer_angle = corner_steer;
 		in.angular_velocity = m_omega[i];
 		in.torque = drive_per_wheel;

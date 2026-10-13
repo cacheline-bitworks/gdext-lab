@@ -4,9 +4,9 @@
 
 using namespace godot;
 
-// ----------------------------------------------------------------------------
+//
 // TireModelV2 - load sensitivity + combined slip
-// ----------------------------------------------------------------------------
+//
 // Extends V1 with:
 //   - Load sensitivity: friction drops as vertical load rises
 //   - Combined slip: Fx and Fy share a friction budget (friction ellipse)
@@ -17,7 +17,7 @@ using namespace godot;
 // overrides step() to add the friction ellipse and camber thrust.
 //
 // See docs/patterns/04-tire-model-v2.md for the design.
-// ----------------------------------------------------------------------------
+//
 class TireModelV2 : public TireModelV1 {
 	GDCLASS(TireModelV2, TireModelV1)
 
@@ -27,6 +27,15 @@ class TireModelV2 : public TireModelV1 {
 
 protected:
 	static void _bind_methods();
+	// Filter hooks for slip values before force computation. Default
+	// implementations return the input unchanged. V3 overrides these to
+	// apply relaxation length (a first-order lag on slip).
+	virtual float filter_slip_ratio(float p_target, const WheelInput &p_input) const {
+		return p_target;
+	}
+	virtual float filter_slip_angle(float p_target, const WheelInput &p_input) const {
+		return p_target;
+	}
 
 public:
 	TireModelV2() = default;

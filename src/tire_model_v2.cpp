@@ -146,15 +146,18 @@ WheelOutput TireModelV2::step(const WheelInput &p_input) {
 	float slip = diff / denom;
 	if (slip > 3.0f) slip = 3.0f;
 	if (slip < -3.0f) slip = -3.0f;
-	output.slip_ratio = slip;
+	output.slip_ratio = filter_slip_ratio(slip, p_input);
 
 	// 2. Slip angle
 	const float safe_vx = std::fmax(std::fabs(vx), SLIP_EPSILON);
-	output.slip_angle = std::atan2(p_input.velocity_lateral, safe_vx) - p_input.steer_angle;
+	const float raw_angle = std::atan2(p_input.velocity_lateral, safe_vx) - p_input.steer_angle;
+	print_line(vformat("[V2 step] about to call filter, this=%d", (int)(intptr_t)this));
+	output.slip_angle = filter_slip_angle(raw_angle, p_input);
+	output.slip_angle = filter_slip_angle(raw_angle, p_input);
     
 
 
-		float fx = compute_force_x(output.slip_ratio, p_input.vertical_load, p_input.friction_coefficient);
+	float fx = compute_force_x(output.slip_ratio, p_input.vertical_load, p_input.friction_coefficient);
 	float slip_fy = -compute_force_y(output.slip_angle, p_input.vertical_load, p_input.friction_coefficient);
 
 	// Faked camber grip scaling.
@@ -177,7 +180,7 @@ WheelOutput TireModelV2::step(const WheelInput &p_input) {
 	const float camber_thrust = CAMBER_STIFFNESS * p_input.camber_angle * p_input.vertical_load;
 
 	float fy = slip_fy + camber_thrust;
-	
+
 	// 4. Friction ellipse constraint
 	//    The tire has one friction budget. If Fx and Fy together exceed it,
 	//    both must be scaled down. Peak force in either direction is

@@ -240,6 +240,7 @@ void VehicleBodyT2c::step(double p_delta) {
 		const float corner_steer = corner_steer_angle(i, steer_angle);
 
 		WheelInput in;
+        in.dt = dt;
 		in.steer_angle = corner_steer;
 		in.camber_angle = corner_camber_angle(i);
 		in.angular_velocity = m_omega[i];

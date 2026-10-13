@@ -17,6 +17,7 @@
 #include "vehicle_body_t2c.h"
 #include "vehicle_body.h"
 #include "vehicle_body_t3.h"
+#include "tire_model_v3.h"
 
 using namespace godot;
 
@@ -38,6 +39,7 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level)
 	GDREGISTER_CLASS(SimulationScheduler);
 	GDREGISTER_CLASS(ExampleClass);
 	GDREGISTER_CLASS(FrameData);
+	GDREGISTER_CLASS(TireModelV3);
 }
 
 void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {

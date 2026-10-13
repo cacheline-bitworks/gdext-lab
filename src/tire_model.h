@@ -5,53 +5,43 @@
 
 using namespace godot;
 
-// 
+// ----------------------------------------------------------------------------
 // WheelInput - everything the tire model needs to know about the outside world
-// 
-// 
-// Plain C++ struct. Not a Godot Object. Zero overhead when passed by reference
-// from the vehicle simulation.
-// 
+// ----------------------------------------------------------------------------
 struct WheelInput {
-	float angular_velocity = 0.0f;       // rad/s, current wheel spin
-	float torque = 0.0f;                 // Nm, net drive torque applied this step
-	float brake_torque = 0.0f;           // Nm, always opposes rotation
-	float vertical_load = 0.0f;          // N, how hard the tire is pressed down
-	float friction_coefficient = 1.0f;   // dimensionless, surface grip
-	float wheel_radius = 0.33f;          // m, for converting torque <-> force
-	float velocity_longitudinal = 0.0f;  // m/s, at contact patch
-	float velocity_lateral = 0.0f;    
-	float steer_angle = 0.0f;
-	
+	float angular_velocity = 0.0f;       // rad/s
+	float torque = 0.0f;                 // Nm
+	float brake_torque = 0.0f;           // Nm
+	float vertical_load = 0.0f;          // N
+	float friction_coefficient = 1.0f;
+	float wheel_radius = 0.33f;          // m
+	float velocity_longitudinal = 0.0f;  // m/s
+	float velocity_lateral = 0.0f;       // m/s
+	float steer_angle = 0.0f;            // rad
+
 	// Camber angle in the body frame (X forward, Y up, Z right).
 	// Positive = top of wheel tilts toward +Z (right).
-	// Negative = top of wheel tilts toward -Z (left).
-	// Note: this is NOT the automotive convention (where negative = top
-	// inward). Callers must convert.
 	float camber_angle = 0.0f;
+
+	// Integration time step in seconds. V3 uses this for relaxation
+	// length; V1/V2 ignore it. Default 0 = no state advancement.
+	float dt = 0.0f;
 };
 
-//
+// ----------------------------------------------------------------------------
 // WheelOutput - what the tire model returns each step
-//
+// ----------------------------------------------------------------------------
 struct WheelOutput {
-	float force_x = 0.0f;    // N, longitudinal (forward/backward)
-	float force_y = 0.0f;    // N, lateral (left/right)
-	float moment_z = 0.0f;   // Nm, aligning torque (0 in v1)
-	float slip_ratio = 0.0f; // dimensionless, for telemetry
-	float slip_angle = 0.0f; // rad, for telemetry
+	float force_x = 0.0f;
+	float force_y = 0.0f;
+	float moment_z = 0.0f;
+	float slip_ratio = 0.0f;
+	float slip_angle = 0.0f;
 };
 
-// 
-// TireModel - abstract base for all versions
-// 
-// Cannot be instantiated directly. Defines the single interface that every
-// tire model version must implement: a step() method that consumes WheelInput
-// and produces WheelOutput.
-//
-// Versions are sibling classes: TireModelV1, TireModelV2, TireModelV3, ...
-// Each is registered with Godot independently and can be chosen at runtime.
-//
+// ----------------------------------------------------------------------------
+// TireModel - abstract base for all tire model versions
+// ----------------------------------------------------------------------------
 class TireModel : public RefCounted {
 	GDCLASS(TireModel, RefCounted)
 
@@ -63,28 +53,20 @@ public:
 	~TireModel() override = default;
 
 	virtual WheelOutput step(const WheelInput &p_input) = 0;
+
+	// Clear any per-tire state (V3's relaxation history, thermal, wear).
+	// V1 and V2 are stateless — default implementation is a no-op.
+	virtual void reset() {}
 };
 
-// 
-// TireModelV1 - pure Pacejka, constant friction, no load sensitivity
-// 
-// The simplest useful tire model. Captures the essential shape:
-//   - Longitudinal force rises with slip ratio, peaks, then falls
-//   - Lateral force rises with slip angle, peaks, then falls
-//   - Vertical load scales the entire curve
-//
-// Does NOT model: load sensitivity, combined slip, relaxation length,
-// thermal effects, or wear.
-//
-// Intended for: AI traffic, background vehicles, tests, and as the baseline
-// against which later versions are compared.
-// 
+// ----------------------------------------------------------------------------
+// TireModelV1 - pure Pacejka with falloff past peak
+// ----------------------------------------------------------------------------
 class TireModelV1 : public TireModel {
 	GDCLASS(TireModelV1, TireModel)
 
 protected:
-	// Pacejka coefficients. Protected so derived classes (V2+) can reuse
-	// or override them.
+	// Pacejka coefficients. Protected so V2+ can reuse or override.
 	float m_long_stiffness = 10.0f;
 	float m_long_shape = 1.65f;
 	float m_long_curvature = 0.5f;

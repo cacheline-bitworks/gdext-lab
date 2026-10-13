@@ -35,10 +35,11 @@ void VehicleBodyT1::step(double p_delta) {
 	// --- 1. World velocity -> body frame ---
 	// Yaw convention: positive yaw rotates the body toward world -Z
 	// (matching T2c's quaternion convention).
+	// This is the inverse of the body->world transform below.
 	const float cy = std::cos(m_yaw);
 	const float sy = std::sin(m_yaw);
-	const float vx_body = cy * m_velocity.x + sy * m_velocity.z;
-	const float vz_body = -sy * m_velocity.x + cy * m_velocity.z;
+	const float vx_body = cy * m_velocity.x - sy * m_velocity.z;
+	const float vz_body = sy * m_velocity.x + cy * m_velocity.z;
 
 	// --- 2. Steering ---
 	const float steer_angle = m_steer_input * m_max_steer_angle;
@@ -59,6 +60,7 @@ void VehicleBodyT1::step(double p_delta) {
 	front_input.wheel_radius = m_wheel_radius;
 	front_input.velocity_longitudinal = vx_body;
 	front_input.velocity_lateral = vz_body - m_yaw_rate * m_cg_to_front;
+	front_input.dt = dt;
 
 	WheelInput rear_input;
 	rear_input.steer_angle = 0.0f;
@@ -70,6 +72,9 @@ void VehicleBodyT1::step(double p_delta) {
 	rear_input.wheel_radius = m_wheel_radius;
 	rear_input.velocity_longitudinal = vx_body;
 	rear_input.velocity_lateral = vz_body + m_yaw_rate * m_cg_to_rear;
+
+		
+	rear_input.dt = dt;
 
 	// --- 5. Tires ---
 	const WheelOutput front_out = m_front_tire->step(front_input);

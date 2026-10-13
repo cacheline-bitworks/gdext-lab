@@ -6,23 +6,24 @@
 #include "vehicle_body.h"
 #include "tire_model.h"
 #include "tire_model_v2.h"
+#include "tire_model_v3.h"
 
 using namespace godot;
 
-// ----------------------------------------------------------------------------
+// 
 // CornerConfigT2c - per-corner suspension parameters
-// ----------------------------------------------------------------------------
+// 
 struct CornerConfigT2c {
 	float spring_rate = 65000.0f;
 	float damper_bump = 4200.0f;
 	float damper_rebound = 8500.0f;
 };
 
-// ----------------------------------------------------------------------------
+// 
 // VehicleBodyT2c - full 6-DOF rigid body chassis
-// ----------------------------------------------------------------------------
+// 
 // See docs/patterns/05-vehicle-body-t2.md for the tier design.
-// ----------------------------------------------------------------------------
+// 
 class VehicleBodyT2c : public VehicleBody {
 	GDCLASS(VehicleBodyT2c, VehicleBody)
 
@@ -46,7 +47,7 @@ class VehicleBodyT2c : public VehicleBody {
 	CornerConfigT2c m_rear_right;
 
 	// Tires (order: FL, FR, RL, RR)
-	Ref<TireModelV2> m_tires[4];
+	Ref<TireModelV3> m_tires[4];
 
 protected:
 	static void _bind_methods();
