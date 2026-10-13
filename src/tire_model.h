@@ -8,7 +8,8 @@ using namespace godot;
 // 
 // WheelInput - everything the tire model needs to know about the outside world
 // 
-// // Plain C++ struct. Not a Godot Object. Zero overhead when passed by reference
+// 
+// Plain C++ struct. Not a Godot Object. Zero overhead when passed by reference
 // from the vehicle simulation.
 // 
 struct WheelInput {
@@ -78,10 +79,12 @@ public:
 // Intended for: AI traffic, background vehicles, tests, and as the baseline
 // against which later versions are compared.
 // 
-
 class TireModelV1 : public TireModel {
 	GDCLASS(TireModelV1, TireModel)
 
+protected:
+	// Pacejka coefficients. Protected so derived classes (V2+) can reuse
+	// or override them.
 	float m_long_stiffness = 10.0f;
 	float m_long_shape = 1.65f;
 	float m_long_curvature = 0.5f;
@@ -90,29 +93,18 @@ class TireModelV1 : public TireModel {
 	float m_lat_shape = 1.3f;
 	float m_lat_curvature = 0.97f;
 
-protected:
 	static void _bind_methods();
 
 public:
 	TireModelV1() = default;
 	~TireModelV1() override = default;
-	
 
-
-
-	// The real interface - used internally by the vehicle simulation.
 	WheelOutput step(const WheelInput &p_input) override;
 
-	// GDScript-friendly wrappers for testing without a vehicle.
-	// Returns a Dictionary with keys: force_x, force_y, moment_z,
-	// slip_ratio, slip_angle.
 	Dictionary step_gd(float p_omega, float p_torque, float p_brake_torque,
 			float p_vertical_load, float p_friction, float p_radius,
 			float p_vel_long, float p_vel_lat);
 
-	// Compute a single longitudinal force from slip ratio, load, and friction.
-	float compute_force_x(float p_slip_ratio, float p_vertical_load, float p_friction) const;
-
-	// Compute a single lateral force from slip angle, load, and friction.
-	float compute_force_y(float p_slip_angle, float p_vertical_load, float p_friction) const;
+	virtual float compute_force_x(float p_slip_ratio, float p_vertical_load, float p_friction) const;
+	virtual float compute_force_y(float p_slip_angle, float p_vertical_load, float p_friction) const;
 };
