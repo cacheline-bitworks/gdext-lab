@@ -15,6 +15,7 @@
 #include "vehicle_body_t2a.h"
 #include "vehicle_body_t2b.h"
 #include "vehicle_body_t2c.h"
+#include "vehicle_body.h"
 #include "vehicle_body_t3.h"
 
 using namespace godot;
@@ -24,18 +25,19 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level)
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
 	}
-	GDREGISTER_CLASS(ExampleClass);
 	GDREGISTER_CLASS(SimulatedEntity);
-	GDREGISTER_CLASS(SimulationScheduler);
-	GDREGISTER_CLASS(FrameData);
-    GDREGISTER_ABSTRACT_CLASS(TireModel);
-	GDREGISTER_CLASS(VehicleBodyT1);
+	GDREGISTER_ABSTRACT_CLASS(VehicleBody);   // <-- MUST be here
+	GDREGISTER_ABSTRACT_CLASS(TireModel);
 	GDREGISTER_CLASS(TireModelV1);
 	GDREGISTER_CLASS(TireModelV2);
+	GDREGISTER_CLASS(VehicleBodyT1);
 	GDREGISTER_CLASS(VehicleBodyT2a);
 	GDREGISTER_CLASS(VehicleBodyT2b);
 	GDREGISTER_CLASS(VehicleBodyT2c);
 	GDREGISTER_CLASS(VehicleBodyT3);
+	GDREGISTER_CLASS(SimulationScheduler);
+	GDREGISTER_CLASS(ExampleClass);
+	GDREGISTER_CLASS(FrameData);
 }
 
 void uninitialize_gdextension_types(ModuleInitializationLevel p_level) {
