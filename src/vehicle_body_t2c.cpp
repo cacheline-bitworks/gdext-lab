@@ -283,7 +283,17 @@ void VehicleBodyT2c::step(double p_delta) {
 	}
 
 	// --- 9. Angular integration ---
-	const Vector3 torque_body = m_orientation.inverse().xform(total_torque_world);
+	const Vector3 torque_body_raw = m_orientation.inverse().xform(total_torque_world);
+
+	// Torque-based damping. Matches the scalar-yaw tiers (T1/T2a/T2b)
+	// so all tiers have the same effective angular decay rate. At rest,
+	// damping coefficient = 200 * 16 = 3200 N·m/(rad/s). For yaw
+	// (inertia 3000) that's ~1.07/s — same as T1/T2a/T2b.
+	const float linear_speed = m_velocity.length();
+	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);
+	const Vector3 damping_torque = -m_angular_velocity * 200.0f * damping_scale;
+	const Vector3 torque_body = torque_body_raw + damping_torque;
+
 	const Vector3 I_omega(
 		m_inertia.x * m_angular_velocity.x,
 		m_inertia.y * m_angular_velocity.y,
@@ -296,11 +306,6 @@ void VehicleBodyT2c::step(double p_delta) {
 		(torque_body.z - gyro.z) * m_inv_inertia.z
 	);
 	m_angular_velocity += domega * dt;
-
-	// Angular damping at low speed
-	const float linear_speed = m_velocity.length();
-	const float damping_scale = 1.0f + 5.0f / (1.0f + linear_speed);
-	m_angular_velocity *= (1.0f - 0.5f * damping_scale * dt);
 
 	// --- 10. Quaternion integration ---
 	const Vector3 delta_rot = m_angular_velocity * dt;
@@ -316,7 +321,7 @@ void VehicleBodyT2c::step(double p_delta) {
 		const float brake_t = (i < 2)
 				? m_brake_input * m_max_brake_torque * 0.35f
 				: m_brake_input * m_max_brake_torque * 0.15f;
-		integrate_wheel_spin(i, tire_out[i].force_x,
-				m_throttle * m_max_engine_torque * 0.25f, brake_t, dt);
+	 		integrate_wheel_spin(i, tire_out[i].force_x,
+				m_throttle * m_max_engine_torque * 0.25f, brake_t, dt, 1.0f);
 	}
 }

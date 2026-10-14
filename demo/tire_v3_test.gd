@@ -11,16 +11,11 @@ func _ready() -> void:
 	print("Initial slip ratio: %.4f" % tire_v3.get_relaxed_slip_ratio())
 	print("Initial slip angle: %.4f" % tire_v3.get_relaxed_slip_angle())
 
-	# Call step_gd (inherited from V2) to verify it works
-	var result: Dictionary = tire_v3.step_gd(
-		90.0,    # omega
-		0.0, 0.0,  # torques
-		4000.0,  # load
-		1.0,     # friction
-		0.33,    # radius
-		30.0,    # vx
-		2.0,     # vy
-		0.0      # steer
+	# Call step_gd_with_dt (V3 refuses plain step_gd)
+	var result: Dictionary = tire_v3.step_gd_with_dt(
+		90.0, 0.0, 0.0,
+		4000.0, 1.0, 0.33,
+		30.0, 2.0, 0.0, 1.0 / 60.0
 	)
 	print("Step result Fy: %.1f N" % result["force_y"])
 	print("")

@@ -4,9 +4,9 @@
 
 using namespace godot;
 
-// ----------------------------------------------------------------------------
+// 
 // TireModelV3 - relaxation length + transient response
-// ----------------------------------------------------------------------------
+// 
 // Extends V2 with a first-order lag on slip ratio and slip angle. Real tire
 // carcasses deform over distance, so forces don't respond instantly to
 // kinematic changes. This lag is what makes drift transitions smooth and
@@ -19,7 +19,7 @@ using namespace godot;
 //
 // V3 is stateful per tire: it remembers m_relaxed_slip_ratio and
 // m_relaxed_slip_angle. reset() clears them.
-// ----------------------------------------------------------------------------
+// 
 class TireModelV3 : public TireModelV2 {
 	GDCLASS(TireModelV3, TireModelV2)
 
@@ -49,9 +49,13 @@ public:
 
 	float get_relaxed_slip_ratio() const { return m_relaxed_slip_ratio; }
 	float get_relaxed_slip_angle() const { return m_relaxed_slip_angle; }
+	// V3's relaxation needs dt. Inherited V2 step_gd leaves dt=0, so
+	// the filter would be a silent no-op. Override to fail loudly.
+	Dictionary step_gd(float p_omega, float p_torque, float p_brake_torque,
+			float p_vertical_load, float p_friction, float p_radius,
+			float p_vel_long, float p_vel_lat, float p_steer_angle,
+			float p_camber_angle);
 
-	// Test helper: like V2's step_gd but takes an explicit dt so V3's
-	// relaxation filter advances correctly from GDScript.
 	Dictionary step_gd_with_dt(float p_omega, float p_torque, float p_brake_torque,
 			float p_vertical_load, float p_friction, float p_radius,
 			float p_vel_long, float p_vel_lat, float p_steer_angle, float p_dt);

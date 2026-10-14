@@ -11,8 +11,9 @@ constexpr float SLIP_EPSILON = 2.0f;
 // 
 void TireModelV2::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("step_gd", "omega", "torque", "brake_torque",
-			"vertical_load", "friction", "radius", "vel_long", "vel_lat", "steer_angle"),
-			&TireModelV2::step_gd);
+			"vertical_load", "friction", "radius", "vel_long", "vel_lat", "steer_angle",
+			"camber_angle"),
+			&TireModelV2::step_gd);	
 
 	ClassDB::bind_method(D_METHOD("compute_force_x", "slip_ratio", "vertical_load", "friction"),
 			&TireModelV2::compute_force_x);
@@ -148,11 +149,11 @@ WheelOutput TireModelV2::step(const WheelInput &p_input) {
 	if (slip < -3.0f) slip = -3.0f;
 	output.slip_ratio = filter_slip_ratio(slip, p_input);
 
+
+
 	// 2. Slip angle
 	const float safe_vx = std::fmax(std::fabs(vx), SLIP_EPSILON);
 	const float raw_angle = std::atan2(p_input.velocity_lateral, safe_vx) - p_input.steer_angle;
-	print_line(vformat("[V2 step] about to call filter, this=%d", (int)(intptr_t)this));
-	output.slip_angle = filter_slip_angle(raw_angle, p_input);
 	output.slip_angle = filter_slip_angle(raw_angle, p_input);
     
 
@@ -222,7 +223,8 @@ WheelOutput TireModelV2::step(const WheelInput &p_input) {
 // 
 Dictionary TireModelV2::step_gd(float p_omega, float p_torque, float p_brake_torque,
 		float p_vertical_load, float p_friction, float p_radius,
-		float p_vel_long, float p_vel_lat, float p_steer_angle) {
+		float p_vel_long, float p_vel_lat, float p_steer_angle,
+		float p_camber_angle) {
 	WheelInput input;
 	input.angular_velocity = p_omega;
 	input.torque = p_torque;
@@ -233,8 +235,11 @@ Dictionary TireModelV2::step_gd(float p_omega, float p_torque, float p_brake_tor
 	input.velocity_longitudinal = p_vel_long;
 	input.velocity_lateral = p_vel_lat;
 	input.steer_angle = p_steer_angle;
+	input.camber_angle = p_camber_angle;
 
 	const WheelOutput out = step(input);
+
+
 
 	Dictionary result;
 	result["force_x"] = out.force_x;

@@ -68,7 +68,8 @@ void VehicleBody::apply_resistance(double p_dt) {
 // Wheel spin integration
 // 
 void VehicleBody::integrate_wheel_spin(int p_index, float p_force_x,
-		float p_drive_torque, float p_brake_torque, double p_dt) {
+		float p_drive_torque, float p_brake_torque, double p_dt,
+		float p_wheel_multiplier) {
 	if (p_index < 0 || p_index > 3) {
 		return;
 	}
@@ -76,8 +77,10 @@ void VehicleBody::integrate_wheel_spin(int p_index, float p_force_x,
 
 	// Tire reaction torque opposes wheel spin
 	const float reaction = -p_force_x * m_wheel_radius;
-	const float axle_inertia = 2.0f * m_wheel_inertia;
-	const float alpha = (p_drive_torque - p_brake_torque + reaction) / axle_inertia;
+	// Bicycle tiers have one virtual wheel per axle (2 physical wheels),
+	// so their effective inertia is 2x. Per-wheel tiers pass 1.0.
+	const float effective_inertia = p_wheel_multiplier * m_wheel_inertia;
+	const float alpha = (p_drive_torque - p_brake_torque + reaction) / effective_inertia;
 
 	m_omega[p_index] += alpha * dt;
 

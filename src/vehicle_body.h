@@ -7,9 +7,9 @@
 
 using namespace godot;
 
-// ----------------------------------------------------------------------------
+// 
 // VehicleBody - shared base for all vehicle tiers
-// ----------------------------------------------------------------------------
+// 
 // Owns state and helpers that every tier shares:
 //   - Mass and geometry
 //   - Driver inputs (throttle, brake, steer)
@@ -22,12 +22,12 @@ using namespace godot;
 // their per-tier step() logic.
 //
 // Registered as abstract — cannot be instantiated from GDScript.
-// ----------------------------------------------------------------------------
+// 
 class VehicleBody : public SimulatedEntity {
 	GDCLASS(VehicleBody, SimulatedEntity)
 
 protected:
-	// --- Mass and geometry ---
+  	// --- Mass and geometry ---
 	float m_mass = 1200.0f;
 	float m_wheel_base = 2.6f;
 	float m_track_width = 1.6f;
@@ -35,6 +35,12 @@ protected:
 	float m_cg_to_rear = 1.3f;
 	float m_wheel_radius = 0.33f;
 	float m_wheel_inertia = 1.5f;
+
+	// Yaw inertia (kg·m²). Used by scalar-yaw tiers (T1, T2a, T2b).
+	// 3000 is realistic for a 1200 kg sedan. The thin-rod formula
+	// m * L² / 12 underestimates real cars by 4-5x because mass is
+	// concentrated near the center, not at the bumpers.
+	float m_yaw_inertia = 3000.0f;
 
 	// --- Wheels (order: FL, FR, RL, RR). T1/T2a use slots 0 and 1 only. ---
 	float m_omega[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -54,11 +60,12 @@ protected:
 	// Apply rolling resistance, aero drag, and low-speed damping to
 	// m_velocity. Call near the end of step(), after force accumulation.
 	void apply_resistance(double p_dt);
-
-	// Integrate one wheel's angular velocity given the tire's longitudinal
-	// force and the drive/brake torques applied to that wheel.
+	// Integrate one wheel's angular velocity. p_wheel_multiplier is 2.0 for
+	// bicycle models (one virtual wheel = two physical wheels) and 1.0 for
+	// per-wheel tiers (4-wheel vehicles).
 	void integrate_wheel_spin(int p_index, float p_force_x,
-			float p_drive_torque, float p_brake_torque, double p_dt);
+		float p_drive_torque, float p_brake_torque, double p_dt,
+		float p_wheel_multiplier);
 
 public:
 	VehicleBody() = default;

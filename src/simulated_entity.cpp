@@ -35,7 +35,10 @@ Vector3 SimulatedEntity::get_velocity() const {
 }
 
 void SimulatedEntity::set_importance(float p_importance) {
-	m_importance = p_importance < 0.0f ? 0.0f : (p_importance > 1.0f ? 1.0f : p_importance);
+	m_importance = p_importance < 0.0f ? 0.0f : (p_importance > 1.0f ? 1.0f : p_importance);//clamp
+	// Just same as: if (p_importance < 0.0f) return 0.0f;
+    // else if (p_importance > 1.0f) return 1.0f;
+    // else return p_importance;
 }
 
 float SimulatedEntity::get_importance() const {

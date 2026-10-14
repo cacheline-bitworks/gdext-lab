@@ -72,8 +72,6 @@ void VehicleBodyT1::step(double p_delta) {
 	rear_input.wheel_radius = m_wheel_radius;
 	rear_input.velocity_longitudinal = vx_body;
 	rear_input.velocity_lateral = vz_body + m_yaw_rate * m_cg_to_rear;
-
-		
 	rear_input.dt = dt;
 
 	// --- 5. Tires ---
@@ -81,10 +79,18 @@ void VehicleBodyT1::step(double p_delta) {
 	const WheelOutput rear_out = m_rear_tire->step(rear_input);
 
 	// --- 6. Sum forces in body frame ---
-	const float fx_body = front_out.force_x + rear_out.force_x;
-	const float fy_body = front_out.force_y * std::cos(steer_angle) + rear_out.force_y;
+	// Front wheel is steered: rotate its local force into body frame.
+	// Local-to-body:  fx_b = fx*cos - fy*sin
+	//                 fz_b = fx*sin + fy*cos
+	const float cs = std::cos(steer_angle);
+	const float ss = std::sin(steer_angle);
+
+	const float fx_body = front_out.force_x * cs - front_out.force_y * ss
+			+ rear_out.force_x;
+	const float fy_body = front_out.force_x * ss + front_out.force_y * cs
+			+ rear_out.force_y;
 	const float mz_body = rear_out.force_y * m_cg_to_rear
-			- front_out.force_y * std::cos(steer_angle) * m_cg_to_front;
+			- (front_out.force_y * cs + front_out.force_x * ss) * m_cg_to_front;
 
 	// --- 7. Body forces -> world frame ---
 	const float cy_w = std::cos(m_yaw);
@@ -100,7 +106,7 @@ void VehicleBodyT1::step(double p_delta) {
 	m_velocity.z += (fz_world / m_mass) * dt;
 
 	// --- 10. Yaw integration ---
-	const float yaw_inertia = m_mass * m_wheel_base * m_wheel_base / 12.0f;
+	const float yaw_inertia = m_yaw_inertia;
 	const float linear_speed = m_velocity.length();
 	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);
 	const float yaw_damping = -m_yaw_rate * 200.0f * damping_scale;
@@ -118,8 +124,8 @@ void VehicleBodyT1::step(double p_delta) {
 	// --- 12. Wheel spin (from base) ---
 	integrate_wheel_spin(0, front_out.force_x,
 			m_throttle * m_max_engine_torque * 0.5f,
-			m_brake_input * m_max_brake_torque * 0.7f, dt);
+			m_brake_input * m_max_brake_torque * 0.7f, dt, 2.0f);
 	integrate_wheel_spin(1, rear_out.force_x,
 			m_throttle * m_max_engine_torque * 0.5f,
-			m_brake_input * m_max_brake_torque * 0.3f, dt);
-}
+			m_brake_input * m_max_brake_torque * 0.3f, dt, 2.0f);
+	}

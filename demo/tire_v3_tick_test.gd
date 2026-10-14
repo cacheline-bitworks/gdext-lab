@@ -32,7 +32,6 @@ func _physics_process(delta: float) -> void:
 		print("--- Done ---")
 		return
 
-	# Target slip angle: 0 at t=0, then 5 degrees
 	var target_angle: float = 0.0 if tick == 0 else deg_to_rad(5.0)
 
 	var load := 4000.0
@@ -40,7 +39,7 @@ func _physics_process(delta: float) -> void:
 	var vy := vx * tan(target_angle)
 
 	var r2: Dictionary = tire_v2.step_gd(
-		50.0, 0.0, 0.0, load, 1.0, 0.33, vx, vy, 0.0)
+		50.0, 0.0, 0.0, load, 1.0, 0.33, vx, vy, 0.0, 0.0)
 	var r3: Dictionary = tire_v3.step_gd_with_dt(
 		50.0, 0.0, 0.0, load, 1.0, 0.33, vx, vy, 0.0, dt)
 

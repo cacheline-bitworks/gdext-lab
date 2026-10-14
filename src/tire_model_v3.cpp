@@ -7,7 +7,13 @@ void TireModelV3::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_relaxation_length"), &TireModelV3::get_relaxation_length);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "relaxation_length"), "set_relaxation_length", "get_relaxation_length");
 
-    ClassDB::bind_method(D_METHOD("step_gd_with_dt", "omega", "torque", "brake_torque",
+	// Fail-loud override. Inherited V2 step_gd would silently leave dt=0.
+	ClassDB::bind_method(D_METHOD("step_gd", "omega", "torque", "brake_torque",
+			"vertical_load", "friction", "radius", "vel_long", "vel_lat",
+			"steer_angle", "camber_angle"),
+			&TireModelV3::step_gd);
+
+	ClassDB::bind_method(D_METHOD("step_gd_with_dt", "omega", "torque", "brake_torque",
 			"vertical_load", "friction", "radius", "vel_long", "vel_lat",
 			"steer_angle", "dt"),
 			&TireModelV3::step_gd_with_dt);
@@ -31,18 +37,31 @@ void TireModelV3::reset() {
 	m_relaxed_slip_angle = 0.0f;
 }
 
-// 
+// -
+// step_gd override — refuses to run without a dt.
+// -
+// V3's relaxation filter requires an integration timestep. The inherited
+// V2 step_gd does not pass one, so V3 would silently behave like V2.
+// Fail loudly instead of returning wrong numbers.
+// -
+Dictionary TireModelV3::step_gd(float, float, float, float, float, float,
+		float, float, float, float) {
+	ERR_PRINT("TireModelV3::step_gd needs a dt. Use step_gd_with_dt instead.");
+	return Dictionary();
+}
+
+// -
 // First-order lag helper.
 //
 // Discrete form derived from d(s)/dt = (vx / sigma) * (target - s):
 //   s_new = s + (1 - exp(-vx * dt / sigma)) * (target - s)
 //
-// For small x, 1 - exp(-x) ≈ x, so we use the linear approximation:
+// For small x, 1 - exp(-x) ~= x, so we use the linear approximation:
 //   factor = clamp(vx * dt / sigma, 0, 1)
 //   s_new = s + factor * (target - s)
 //
 // At dt = 0, factor = 0, no update. Matches "no integration without time."
-// 
+// -
 static float relax_toward(float current, float target, float p_speed,
 		float p_relaxation_length, float p_dt) {
 	if (p_dt <= 0.0f) {
@@ -66,9 +85,6 @@ float TireModelV3::filter_slip_ratio(float p_target, const WheelInput &p_input) 
 }
 
 float TireModelV3::filter_slip_angle(float p_target, const WheelInput &p_input) const {
-	// DEBUG: prove V3's override is being called
-	print_line(vformat("[V3] filter called: target=%.4f dt=%.4f", p_target, p_input.dt));
-
 	TireModelV3 *self = const_cast<TireModelV3 *>(this);
 	const float vx_abs = std::fabs(p_input.velocity_longitudinal);
 	self->m_relaxed_slip_angle = relax_toward(

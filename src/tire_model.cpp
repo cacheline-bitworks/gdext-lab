@@ -24,7 +24,7 @@ void TireModel::_bind_methods() {
 // 
 void TireModelV1::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("step_gd", "omega", "torque", "brake_torque",
-			"vertical_load", "friction", "radius", "vel_long", "vel_lat"),
+			"vertical_load", "friction", "radius", "vel_long", "vel_lat", "steer_angle"),
 			&TireModelV1::step_gd);
 
 	ClassDB::bind_method(D_METHOD("compute_force_x", "slip_ratio", "vertical_load", "friction"),
@@ -133,7 +133,7 @@ WheelOutput TireModelV1::step(const WheelInput &p_input) {
 // 
 Dictionary TireModelV1::step_gd(float p_omega, float p_torque, float p_brake_torque,
 		float p_vertical_load, float p_friction, float p_radius,
-		float p_vel_long, float p_vel_lat) {
+		float p_vel_long, float p_vel_lat, float p_steer_angle) {
 	WheelInput input;
 	input.angular_velocity = p_omega;
 	input.torque = p_torque;
@@ -143,8 +143,10 @@ Dictionary TireModelV1::step_gd(float p_omega, float p_torque, float p_brake_tor
 	input.wheel_radius = p_radius;
 	input.velocity_longitudinal = p_vel_long;
 	input.velocity_lateral = p_vel_lat;
+	input.steer_angle = p_steer_angle;
 
 	const WheelOutput out = step(input);
+
 
 	Dictionary result;
 	result["force_x"] = out.force_x;

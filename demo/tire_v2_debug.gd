@@ -58,9 +58,6 @@ func _test_longitudinal() -> void:
 		print("%8.3f | %10.1f %10.1f | %10.1f %10.1f" % [slip, v1_2k, v1_4k, v2_2k, v2_4k])
 
 	print("")
-	print("  Watch: at 2000 N, V2 should be higher than V1 (load < nominal).")
-	print("         at 4000 N, V2 should equal V1 (load = nominal).")
-	print("")
 
 func _test_lateral() -> void:
 	print("--- 3. Lateral force: V1 vs V2 at three loads ---")
@@ -83,7 +80,6 @@ func _test_lateral() -> void:
 func _test_combined_slip() -> void:
 	print("--- 4. Combined slip (friction ellipse) demonstration ---")
 	print("    Load 4000 N, fixed slip angle = 5 deg, sweep slip ratio")
-	print("    Watch how Fy is sacrificed as Fx grows.")
 	print("")
 	print("%10s %10s %10s %12s %12s" % ["slip", "Fx (N)", "Fy (N)", "F_total", "F_peak"])
 
@@ -94,21 +90,17 @@ func _test_combined_slip() -> void:
 	for i in 13:
 		var slip: float = -0.3 + float(i) * 0.05
 		var angle_rad: float = deg_to_rad(5.0)
-		# Approximate vx from slip assuming omega*R held constant
 		var omega: float = 50.0 + slip * 50.0
 		var result: Dictionary = tire_v2.step_gd(
 			omega, 0.0, 0.0,
 			load, 1.0, 0.33,
-			30.0, 30.0 * tan(angle_rad), 0.0
+			30.0, 30.0 * tan(angle_rad), 0.0, 0.0
 		)
 		var fx: float = result["force_x"]
 		var fy: float = result["force_y"]
 		var f_total: float = sqrt(fx * fx + fy * fy)
 		print("%10.3f %10.1f %10.1f %12.1f %12.1f" % [slip, fx, fy, f_total, f_peak])
 
-	print("")
-	print("  Watch: F_total should never exceed F_peak.")
-	print("         As Fx increases, Fy should decrease to make room.")
 	print("")
 
 func _test_peak_comparison() -> void:
@@ -118,7 +110,6 @@ func _test_peak_comparison() -> void:
 
 	var loads: Array[float] = [1000.0, 2000.0, 3000.0, 4000.0, 6000.0, 8000.0]
 	for load in loads:
-		# Sweep slip to find peak (rough)
 		var v1_peak: float = 0.0
 		var v2_peak: float = 0.0
 		for i in 100:
@@ -130,7 +121,4 @@ func _test_peak_comparison() -> void:
 		var ratio: float = v2_peak / v1_peak if v1_peak > 0.0 else 0.0
 		print("%10.0f %12.1f %12.1f %12.4f" % [load, v1_peak, v2_peak, ratio])
 
-	print("")
-	print("  V1 ratio should always be 1.0 (no load sensitivity).")
-	print("  V2 ratio should drop below 1.0 as load rises above nominal.")
 	print("")

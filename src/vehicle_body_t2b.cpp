@@ -201,7 +201,7 @@ void VehicleBodyT2b::step(double p_delta) {
 	m_velocity.z += (fz_world / m_mass) * dt;
 
 	// --- 11. Yaw ---
-	const float yaw_inertia = m_mass * m_wheel_base * m_wheel_base / 12.0f;
+	const float yaw_inertia = m_yaw_inertia;
 	const float linear_speed = m_velocity.length();
 	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);
 	const float yaw_damping = -m_yaw_rate * 200.0f * damping_scale;
@@ -243,7 +243,7 @@ void VehicleBodyT2b::step(double p_delta) {
 		const float brake_torque = (i < 2)
 				? m_brake_input * m_max_brake_torque * 0.35f
 				: m_brake_input * m_max_brake_torque * 0.15f;
-		integrate_wheel_spin(i, tire_out[i].force_x, drive_per_wheel,
-				brake_torque, dt);
+				integrate_wheel_spin(i, tire_out[i].force_x, drive_per_wheel,
+				brake_torque, dt, 1.0f);
 	}
 }

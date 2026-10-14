@@ -15,10 +15,10 @@ protected:
 	Vector3 m_velocity;
 
 	// Scheduler-managed fields. Set by SimulationScheduler each tick.
-	float m_importance = 0.5f;
-	float m_priority = 1.0f;
-	float m_current_frequency = 100.0f;
-	float m_accumulator = 0.0f;
+	float m_importance = 0.5f;           // How much the gameplay cares(0..1) - feeds back to m_current_frequency
+	float m_priority = 1.0f;             // Urgency of next tick
+	float m_current_frequency = 100.0f;  // like how often this entity wants to be stepped
+	float m_accumulator = 0.0f;          // Leftover time - the only thing with the actual math and the math is trivial
 
 	static void _bind_methods();
 

@@ -5,9 +5,9 @@
 
 using namespace godot;
 
-// ----------------------------------------------------------------------------
+// 
 // WheelInput - everything the tire model needs to know about the outside world
-// ----------------------------------------------------------------------------
+// 
 struct WheelInput {
 	float angular_velocity = 0.0f;       // rad/s
 	float torque = 0.0f;                 // Nm
@@ -28,9 +28,9 @@ struct WheelInput {
 	float dt = 0.0f;
 };
 
-// ----------------------------------------------------------------------------
+// 
 // WheelOutput - what the tire model returns each step
-// ----------------------------------------------------------------------------
+// 
 struct WheelOutput {
 	float force_x = 0.0f;
 	float force_y = 0.0f;
@@ -39,9 +39,9 @@ struct WheelOutput {
 	float slip_angle = 0.0f;
 };
 
-// ----------------------------------------------------------------------------
+// 
 // TireModel - abstract base for all tire model versions
-// ----------------------------------------------------------------------------
+// 
 class TireModel : public RefCounted {
 	GDCLASS(TireModel, RefCounted)
 
@@ -59,9 +59,9 @@ public:
 	virtual void reset() {}
 };
 
-// ----------------------------------------------------------------------------
+// 
 // TireModelV1 - pure Pacejka with falloff past peak
-// ----------------------------------------------------------------------------
+// 
 class TireModelV1 : public TireModel {
 	GDCLASS(TireModelV1, TireModel)
 
@@ -85,7 +85,7 @@ public:
 
 	Dictionary step_gd(float p_omega, float p_torque, float p_brake_torque,
 			float p_vertical_load, float p_friction, float p_radius,
-			float p_vel_long, float p_vel_lat);
+			float p_vel_long, float p_vel_lat, float p_steer_angle);
 
 	virtual float compute_force_x(float p_slip_ratio, float p_vertical_load, float p_friction) const;
 	virtual float compute_force_y(float p_slip_angle, float p_vertical_load, float p_friction) const;

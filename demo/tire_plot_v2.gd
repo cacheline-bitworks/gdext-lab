@@ -43,9 +43,6 @@ func _draw() -> void:
 		font
 	)
 
-# ---------------------------------------------------------------------------
-# Plot 1: load sensitivity
-# ---------------------------------------------------------------------------
 func _draw_load_sensitivity_plot(origin: Vector2, title: String, font: Font) -> void:
 	draw_rect(Rect2(origin, Vector2(PLOT_W, PLOT_H)), Color(0.08, 0.08, 0.10), true)
 
@@ -83,9 +80,6 @@ func _draw_load_sensitivity_plot(origin: Vector2, title: String, font: Font) -> 
 	draw_string(font, Vector2(origin.x - 40, origin.y + 4),
 		"Fx (N)", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.7, 0.7, 0.75))
 
-# ---------------------------------------------------------------------------
-# Plot 2: V1 vs V2
-# ---------------------------------------------------------------------------
 func _draw_v1_v2_plot(origin: Vector2, title: String, font: Font) -> void:
 	draw_rect(Rect2(origin, Vector2(PLOT_W, PLOT_H)), Color(0.08, 0.08, 0.10), true)
 
@@ -98,13 +92,11 @@ func _draw_v1_v2_plot(origin: Vector2, title: String, font: Font) -> void:
 	draw_line(Vector2(center.x, origin.y), Vector2(center.x, origin.y + PLOT_H),
 		Color(0.35, 0.35, 0.40), 1.0)
 
-	# V1: blue-ish
 	var v1_solid := Color(0.4, 0.6, 0.9)
 	var v1_dim := Color(0.4, 0.6, 0.9, 0.5)
 	_draw_force_y_curve(tire_v1, 4000.0, v1_solid, center, scale_x, scale_y)
 	_draw_force_y_curve(tire_v1, 6000.0, v1_dim, center, scale_x, scale_y)
 
-	# V2: green-ish
 	var v2_solid := Color(0.4, 1.0, 0.5)
 	var v2_dim := Color(0.4, 1.0, 0.5, 0.5)
 	_draw_force_y_curve(tire_v2, 4000.0, v2_solid, center, scale_x, scale_y)
@@ -130,9 +122,6 @@ func _draw_force_y_curve(tire: TireModel, load: float, color: Color,
 		points.append(center + Vector2(angle_deg * scale_x, -fy * scale_y))
 	draw_polyline(points, color, 2.0, true)
 
-# ---------------------------------------------------------------------------
-# Plot 3: friction ellipse
-# ---------------------------------------------------------------------------
 func _draw_ellipse_plot(origin: Vector2, title: String, font: Font) -> void:
 	draw_rect(Rect2(origin, Vector2(PLOT_W, PLOT_H)), Color(0.08, 0.08, 0.10), true)
 
@@ -150,7 +139,6 @@ func _draw_ellipse_plot(origin: Vector2, title: String, font: Font) -> void:
 	var mu_eff: float = tire_v2.effective_mu(load, friction)
 	var f_peak: float = mu_eff * load
 
-	# Draw the ellipse itself
 	var ellipse_points := PackedVector2Array()
 	for i in 64:
 		var t: float = float(i) / 64.0 * TAU
@@ -159,7 +147,6 @@ func _draw_ellipse_plot(origin: Vector2, title: String, font: Font) -> void:
 		ellipse_points.append(center + Vector2(ex * scale_x, -ey * scale_y))
 	draw_polyline(ellipse_points, Color(0.5, 0.5, 0.55), 1.0, true)
 
-	# Trace the actual (Fx, Fy) as slip ratio sweeps
 	var fixed_slip_angle: float = deg_to_rad(5.0)
 	var points := PackedVector2Array()
 	for i in SAMPLES + 1:
@@ -168,7 +155,7 @@ func _draw_ellipse_plot(origin: Vector2, title: String, font: Font) -> void:
 		var result: Dictionary = tire_v2.step_gd(
 			50.0 + slip * 50.0, 0.0, 0.0,
 			load, friction, 0.33,
-			30.0, 30.0 * tan(fixed_slip_angle), 0.0
+			30.0, 30.0 * tan(fixed_slip_angle), 0.0, 0.0
 		)
 		var fx: float = result["force_x"]
 		var fy: float = result["force_y"]
