@@ -140,15 +140,8 @@ int SimulationScheduler::get_total_ticks() const {
     return m_total_ticks;
 }
 
-float SimulationScheduler::get_average_frequency() const {
-    if (m_entities.empty()) {
-        return 0.0f;
-    }
-    float sum = 0.0f;
-    for (const Ref<SimulatedEntity> &e : m_entities) {
-        sum += e->get_current_frequency();
-    }
-    return sum / (float)m_entities.size();
+	float SimulationScheduler::get_average_frequency() const {
+    return m_cached_avg_freq;
 }
 
 void SimulationScheduler::_physics_process(double p_delta) {
@@ -207,9 +200,24 @@ void SimulationScheduler::_physics_process(double p_delta) {
 
         // If we hit the step cap, clamp the accumulator so it can't
         // grow unbounded and cause a spiral of death on the next tick.
-        const float max_accumulated = interval * (float)MAX_STEPS_PER_TICK;
+               const float max_accumulated = interval * (float)MAX_STEPS_PER_TICK;
         if (entity->get_accumulator() > max_accumulated) {
             entity->set_accumulator(max_accumulated);
         }
     }
+
+    // Cache the average frequency for O(1) reads. Recomputed here because
+    // we've already walked every entity — no extra iteration needed.
+    if (m_entities.empty()) {
+        m_cached_avg_freq = 0.0f;
+    } else {
+        float sum = 0.0f;
+        for (const Ref<SimulatedEntity> &e : m_entities) {
+            if (e.is_valid()) {
+                sum += e->get_current_frequency();
+            }
+        }
+        m_cached_avg_freq = sum / (float)m_entities.size();
+    }
 }
+

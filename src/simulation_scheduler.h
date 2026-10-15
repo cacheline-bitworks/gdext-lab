@@ -22,6 +22,7 @@ class SimulationScheduler : public Node {
 	int m_last_step_count = 0; // this tick: how much work did I just do?
 	int m_total_steps = 0;     // since startup: total work
 	int m_total_ticks = 0;     // since startup: how many ticks have I run?
+	float m_cached_avg_freq = 0.0f; // recomputed each tick, O(1) read
 
 	// --- Managed entities ---
 	std::vector<Ref<SimulatedEntity>> m_entities;

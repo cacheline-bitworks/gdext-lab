@@ -1,5 +1,6 @@
 #include "simulated_entity.h"
 
+#include <cmath>
 void SimulatedEntity::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_position", "position"), &SimulatedEntity::set_position);
 	ClassDB::bind_method(D_METHOD("get_position"), &SimulatedEntity::get_position);
@@ -50,7 +51,12 @@ float SimulatedEntity::get_priority() const {
 }
 
 void SimulatedEntity::set_priority(float p_priority) {
-	m_priority = p_priority;
+	// NaN would violate strict weak ordering if the scheduler ever sorts
+	// by priority. Clamp to [0, 1] and reject NaN.
+	if (std::isnan(p_priority)) {
+		p_priority = 1.0f;
+	}
+	m_priority = p_priority < 0.0f ? 0.0f : (p_priority > 1.0f ? 1.0f : p_priority);
 }
 
 float SimulatedEntity::get_current_frequency() const {
@@ -58,6 +64,11 @@ float SimulatedEntity::get_current_frequency() const {
 }
 
 void SimulatedEntity::set_current_frequency(float p_freq) {
+	// 0 or negative frequency would produce 1/f = inf downstream.
+	// NaN is rejected by the comparison (NaN < x is always false).
+	if (std::isnan(p_freq) || p_freq < 0.01f) {
+		p_freq = 0.01f;
+	}
 	m_current_frequency = p_freq;
 }
 
@@ -66,9 +77,17 @@ float SimulatedEntity::get_accumulator() const {
 }
 
 void SimulatedEntity::set_accumulator(float p_acc) {
+	// Huge accumulators cause catch-up spirals on the next tick.
+	// The scheduler clamps this too, but defense in depth is cheap.
+	if (std::isnan(p_acc) || p_acc < 0.0f) {
+		p_acc = 0.0f;
+	}
+	// 5 seconds is a generous ceiling — no single frame should bank more.
+	if (p_acc > 5.0f) {
+		p_acc = 5.0f;
+	}
 	m_accumulator = p_acc;
 }
-
 void SimulatedEntity::step(double p_delta) {
 	// Default behavior: linear motion. Subclasses override for real simulation.
 	m_position += m_velocity * (float)p_delta;

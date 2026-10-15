@@ -124,10 +124,34 @@ float VehicleBodyT2c::get_corner_load(int p_index) const {
 	const Vector3 world_c = m_position + m_orientation.xform(body_c);
 	const float compression = -world_c.y;
 
+	// Spring force
+	const float spring_f = cfg->spring_rate * compression;
+
+	// Damper force — depends on vertical velocity at this corner
+	const Vector3 omega_world = m_orientation.xform(m_angular_velocity);
+	const Vector3 r = world_c - m_position;
+	const Vector3 corner_vel_world = m_velocity + omega_world.cross(r);
+	const float corner_vel_y = corner_vel_world.y;
+
+	float damper_f;
+	if (corner_vel_y > 0.0f) {
+		damper_f = -cfg->damper_rebound * corner_vel_y;
+	} else {
+		damper_f = -cfg->damper_bump * corner_vel_y;
+	}
+
+	// Anti-roll bar contribution via subclass hook
+	const int opposite = (p_index == 0) ? 1 : (p_index == 1) ? 0 : (p_index == 2) ? 3 : 2;
+	const Vector3 opp_body_c = get_body_corner(opposite, m_cg_to_front, m_cg_to_rear,
+			m_track_width, m_eq_height);
+	const Vector3 opp_world_c = m_position + m_orientation.xform(opp_body_c);
+	const float opp_compression = -opp_world_c.y;
+	const float extra_force = extra_corner_force(p_index, compression, opp_compression);
+
 	const float static_load = get_static_load(p_index, m_mass, m_cg_to_front,
 			m_cg_to_rear, m_wheel_base);
 
-	float load = static_load + cfg->spring_rate * compression;
+	float load = static_load + spring_f + damper_f + extra_force;
 	return load < 0.0f ? 0.0f : load;
 }
 
@@ -300,10 +324,11 @@ void VehicleBodyT2c::step(double p_delta) {
 		m_inertia.z * m_angular_velocity.z
 	);
 	const Vector3 gyro = m_angular_velocity.cross(I_omega);
+	const Vector3 inv_I = inverse_inertia();
 	const Vector3 domega(
-		(torque_body.x - gyro.x) * m_inv_inertia.x,
-		(torque_body.y - gyro.y) * m_inv_inertia.y,
-		(torque_body.z - gyro.z) * m_inv_inertia.z
+		(torque_body.x - gyro.x) * inv_I.x,
+		(torque_body.y - gyro.y) * inv_I.y,
+		(torque_body.z - gyro.z) * inv_I.z
 	);
 	m_angular_velocity += domega * dt;
 

@@ -33,7 +33,12 @@ class VehicleBodyT2c : public VehicleBody {
 	Quaternion m_orientation;
 
 	Vector3 m_inertia = Vector3(400.0f, 3000.0f, 1800.0f);
-	Vector3 m_inv_inertia = Vector3(1.0f / 400.0f, 1.0f / 3000.0f, 1.0f / 1800.0f);
+
+	// Inverse inertia is derived, not stored. Prevents desync between
+	// m_inertia and m_inv_inertia if one is ever changed at runtime.
+	inline Vector3 inverse_inertia() const {
+		return Vector3(1.0f / m_inertia.x, 1.0f / m_inertia.y, 1.0f / m_inertia.z);
+	}
 
 	// Aerodynamics
 	float m_drag_coefficient = 0.30f;

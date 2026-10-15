@@ -28,13 +28,16 @@ int FrameData::get_point_count() const {
 }
 
 float FrameData::_heavy_compute(int p_index, double p_time) {
-	float t = (float)p_index * 0.001f;
-	float sum = 0.0f;
+	// Angle arithmetic in double. Accumulating hundreds of radians in
+	// float loses precision rapidly because sin/cos do range reduction
+	// on the argument first.
+	double t = (double)p_index * 0.001;
+	double sum = 0.0;
 	for (int k = 0; k < 50; k++) {
-		float angle = t * (float)kTau * (float)(k + 1) + (float)p_time;
-		sum += std::sin(angle) * std::cos(angle * 0.5f);
+		double angle = t * kTau * (double)(k + 1) + p_time;
+		sum += std::sin(angle) * std::cos(angle * 0.5);
 	}
-	return std::sqrt(std::fabs(sum) + 1.0f);
+	return (float)std::sqrt(std::fabs(sum) + 1.0);
 }
 
 PackedByteArray FrameData::get_raw_bytes() const {
@@ -100,11 +103,13 @@ PackedByteArray FrameData::compute_parallel() const {
 
 	return out;
 }
-
 void FrameData::_process(double delta) {
-	m_time += delta;
+	// Wrap m_time at 2π. sin/cos are 2π-periodic, so the math is identical,
+	// but the value stays small enough to keep full double precision
+	// forever. Without wrapping, precision degrades after ~months of
+	// continuous running.
+	m_time = fmod(m_time + delta, 6.283185307179586);
 }
-
 void FrameData::_ready() {
 	print_line("FrameData ready, point_count = ", m_point_count);
 }

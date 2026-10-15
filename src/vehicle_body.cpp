@@ -60,6 +60,12 @@ void VehicleBody::apply_resistance(double p_dt) {
 		m_velocity *= (1.0f - damping * dt);
 		if (m_velocity.length() < 0.05f) {
 			m_velocity = Vector3(0.0f, 0.0f, 0.0f);
+			// Wheels stop with the car. Without this, they keep "spinning"
+			// at whatever rate they had, and the tire model sees phantom
+			// slip velocity forever.
+			for (int i = 0; i < 4; i++) {
+				m_omega[i] = 0.0f;
+			}
 		}
 	}
 }
