@@ -346,3 +346,175 @@ entry here. Structure:
 **Fix** -- what actually resolved it.
 
 The symptom is the most important part. That is what someone will search for.
+
+---
+
+## 12. SCons Silently Skips Relinking
+
+**Symptom**
+
+You edit a `.cpp` file, run `scons`, and see:
+
+    Compiling shared src/foo.cpp ...
+    scons: `.../libgdext_lab.linux.template_debug.x86_64.so' is up to date.
+
+The object files just changed, but SCons says the shared library is up to
+date. The `.so` on disk is stale. Godot loads the old binary and your fix
+appears to have done nothing.
+
+**Cause**
+
+SCons's dependency graph occasionally misses the fact that object files
+are newer than the linked output. Especially common when a `.cpp` is
+recompiled but the linker is not re-invoked.
+
+**Fix**
+
+Force the link by deleting the shared library first:
+
+    rm -f addons/gdext_lab/bin/linux/*.so
+    scons
+
+Watch for the `Linking Shared Library` line in the output. If it appears,
+the `.so` was rebuilt. If it does not, SCons is still confused — try
+`rm -f src/*.os` too.
+
+Confirm the timestamp changed:
+
+    ls -la addons/gdext_lab/bin/linux/*.so
+
+**Habit:** after any source change, delete the `.so` before running
+`scons`. One extra command, eliminates this failure class entirely.
+
+---
+
+## 13. Godot Does Not Reload the .so After Rebuild
+
+**Symptom**
+
+You rebuild with `scons`, the `.so` timestamp updates, but the Godot
+editor still behaves as if your C++ changes never landed. The
+`reloadable = true` flag in the `.gdextension` file does not help.
+
+**Cause**
+
+The `.so` is loaded when the editor process starts. It stays in memory
+until the editor closes. Rebuilding the file on disk has no effect on the
+already-loaded library.
+
+**Fix**
+
+Fully quit the Godot editor (Ctrl+Q, not just stop the scene), then
+relaunch:
+
+    pgrep -fa godot
+    # If anything shows:
+    pkill -f godot
+    sleep 1
+    gdglab
+
+**Never trust a C++ change to take effect until the editor has been
+restarted.** This is the single most common source of "but my code is
+right, why doesn't it work" confusion in GDExtension development.
+
+---
+
+## 14. Signature Change Breaks GDScript Callers
+
+**Symptom**
+
+You add a parameter to a bound method in C++, rebuild, and everything
+compiles. Then GDScript errors:
+
+    Parse Error: Too few arguments for "step_gd()" call.
+    Expected at least 9 but received 8.
+
+**Cause**
+
+When you change a bound method's signature, the C++ compiler catches all
+C++ callers. But GDScript callers are invisible to the compiler. Any
+`.gd` file calling the method with the old argument list will fail at
+runtime in the Godot editor.
+
+**Fix**
+
+After changing a bound method's signature, grep the entire project:
+
+    grep -rn "method_name" .
+
+That finds:
+
+- Other `.cpp` files that call the method
+- `.gd` scripts that call it via `method_name(...)`
+- Documentation that references the old signature
+
+Update every GDScript call site to match.
+
+**Rule:** a bound method's signature is a public interface. Changing it
+is a breaking change for every language that talks to Godot — C++,
+GDScript, and C#.
+
+---
+
+## 15. Function-Local `static` in Hot Paths
+
+**Symptom**
+
+You add a diagnostic print using a function-local `static` variable to
+throttle it — for example, print once per second. With one vehicle it
+works. With several vehicles the output is confusing or interleaved. With
+a threaded scheduler it produces wrong output or crashes.
+
+**Cause**
+
+A function-local `static` is shared across **all instances** of the class.
+Every vehicle that runs `step()` shares the same counter. The "once per
+second" throttle fires once per second total, describing whichever vehicle
+happened to be stepping when the timer flipped. Under multiple threads,
+it is a data race on a non-atomic variable — undefined behavior.
+
+**Fix**
+
+Either remove the diagnostic, gate it behind a compile-time flag, or make
+it an instance member:
+
+    // Bad — shared across all instances
+    static float debug_timer = 0.0f;
+
+    // Good — one per instance
+    float m_debug_timer = 0.0f;
+
+Better yet, do not print from `step()` at all in shipped code. Use a
+signal or a separate debug node to observe state.
+
+---
+
+## 16. `Nf` Is Not a Valid C++ Float Literal
+
+**Symptom**
+
+    error: unable to find numeric literal operator 'operator""f'
+
+**Cause**
+
+C++ requires a decimal point before the `f` suffix. `2f`, `100f`, and
+`0.5f` (without a leading digit) are all invalid. `2.0f`, `100.0f`, and
+`0.5f` are correct.
+
+**Fix**
+
+Add a decimal point:
+
+    // Wrong
+    float x = 100f;
+    float y = 2f;
+
+    // Right
+    float x = 100.0f;
+    float y = 2.0f;
+
+The error message is misleading — it mentions "numeric literal operator"
+(a C++11 feature for user-defined suffixes) but the actual problem is
+just a missing decimal point.
+
+---
