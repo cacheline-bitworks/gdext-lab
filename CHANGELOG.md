@@ -18,6 +18,42 @@ loosely (pre-1.0, so the minor version reflects capability milestones).
 
 ---
 
+## [0.4.0] - 2026-10-16
+
+Adaptive scheduling and runtime tire selection. The public library now
+covers every subsystem the private game phase will build on.
+
+### Added
+
+- **Adaptive quality scheduler**
+  - Global quality multiplier (0.0 to 1.0) scaling every entity's frequency
+  - Wall-clock frame time measurement (not simulation timestep)
+  - Hysteresis state machine: fast degrade, slow recover
+  - `quality_changed(float)` signal for UI and logging
+  - `set_target_frame_time_ms` / `get_quality` API
+- **Runtime tire selection** across all vehicle tiers
+  - `VehicleBody` interface: `get_corner_count`, `set_corner_tire`,
+    `get_corner_tire`, `set_all_tires`
+  - Tires stored as `Ref<TireModel>` — any concrete subclass can be
+    installed at runtime
+  - Demo shows V1, V2, V3 producing different handling on the same T2c
+    vehicle with no rebuild
+- `docs/patterns/10-tire-swapping.md`
+- Implementation notes appended to `docs/patterns/06-adaptive-scheduler.md`
+
+### Changed
+
+- `SimulationScheduler` measures its own wall-clock tick duration and
+  applies the quality multiplier to every entity's frequency
+- `VehicleBody` no longer hides tire types behind concrete `Ref<>` storage
+
+### Fixed
+
+- Adaptive controller no longer degrades during idle (the original
+  implementation fed `p_delta` — a fixed simulation timestep — to the
+  frame-time controller, causing constant false-over-budget readings)
+- Demo `tire_swap_test.tscn` runs three tire types on one vehicle
+
 ## [0.3.0] - 2026-10-15
 
 The full physics tier. Relaxation-length tires, four-wheel vehicle bodies
