@@ -2,7 +2,8 @@
 
 #include <algorithm>
 
-#include <godot_cpp/core/math.hpp> 
+#include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/core/math.hpp>
 
 namespace {
 constexpr float MIN_SAFE_FREQ = 0.01f;   // Hz, avoids 1/f = inf downstream
@@ -41,6 +42,13 @@ void SimulationScheduler::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_total_steps"),       &SimulationScheduler::get_total_steps);
     ClassDB::bind_method(D_METHOD("get_total_ticks"),       &SimulationScheduler::get_total_ticks);
     ClassDB::bind_method(D_METHOD("get_average_frequency"), &SimulationScheduler::get_average_frequency);
+
+    	ClassDB::bind_method(D_METHOD("set_target_frame_time_ms", "ms"), &SimulationScheduler::set_target_frame_time_ms);
+	ClassDB::bind_method(D_METHOD("get_target_frame_time_ms"), &SimulationScheduler::get_target_frame_time_ms);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "target_frame_time_ms"), "set_target_frame_time_ms", "get_target_frame_time_ms");
+
+	ClassDB::bind_method(D_METHOD("get_quality"), &SimulationScheduler::get_quality);
+    ADD_SIGNAL(MethodInfo("quality_changed", PropertyInfo(Variant::FLOAT, "quality")));
 }
 
 void SimulationScheduler::set_max_frequency(float p_freq) {
@@ -150,6 +158,12 @@ void SimulationScheduler::_physics_process(double p_delta) {
 	if (p_delta > MAX_FRAME_DELTA) {
 		p_delta = MAX_FRAME_DELTA;
 	}
+
+	// Measure wall-clock time for this tick. p_delta is fixed by Godot
+	// (1 / physics_ticks_per_second) and never changes, so it can't
+	// measure load. We need our own timer.
+	const int64_t start_usec = Time::get_singleton()->get_ticks_usec();
+
 	m_total_ticks++;
     m_last_step_count = 0;
 
@@ -175,8 +189,10 @@ void SimulationScheduler::_physics_process(double p_delta) {
         priority = priority < 0.0f ? 0.0f : (priority > 1.0f ? 1.0f : priority);
         entity->set_priority(priority);
 
-        // 2. Map priority to a frequency.
+	        // 2. Map priority to a frequency, then apply the adaptive quality
+        //    multiplier. Quality scales every entity's frequency globally.
         float freq = m_min_frequency + priority * (m_max_frequency - m_min_frequency);
+        freq *= m_quality;
         if (freq < 0.01f) {
             freq = 0.01f;
         }
@@ -219,5 +235,75 @@ void SimulationScheduler::_physics_process(double p_delta) {
         }
         m_cached_avg_freq = sum / (float)m_entities.size();
     }
+    	// Measure elapsed wall-clock time and feed it to the controller.
+	const int64_t end_usec = Time::get_singleton()->get_ticks_usec();
+	const float elapsed_ms = (float)(end_usec - start_usec) / 1000.0f;
+	_update_quality(elapsed_ms, p_delta);
+}
+void SimulationScheduler::set_target_frame_time_ms(float p_ms) {
+	m_target_frame_time_ms = p_ms > 1.0f ? p_ms : 1.0f;
+}
+
+float SimulationScheduler::get_target_frame_time_ms() const {
+	return m_target_frame_time_ms;
+}
+
+float SimulationScheduler::get_quality() const {
+	return m_quality;
+}
+//	
+// Adaptive quality controller
+//	
+// Watches smoothed frame time and adjusts m_quality with hysteresis:
+//
+//   - STABLE   -> DEGRADING:  frame time > target * degrade_threshold
+//                             sustained for degrade_interval_s
+//   - STABLE   -> RECOVERING: frame time < target * upgrade_threshold
+//                             sustained for upgrade_interval_s
+//   - DEGRADING -> STABLE:    frame time back in the acceptable band
+//   - RECOVERING -> STABLE:   frame time back in the acceptable band,
+//                             quality stepped up by upgrade_step
+//
+// Quality changes emit the "quality_changed" signal.
+//	
+void SimulationScheduler::_update_quality(float p_elapsed_ms, double p_delta) {
+	const float dt = (float)p_delta;
+
+	// Smooth the measured wall-clock time with an EMA. Raw values are
+	// noisy tick to tick — react to the trend, not the jitter.
+	m_avg_frame_time_ms = m_avg_frame_time_ms * 0.9f + p_elapsed_ms * 0.1f;
+
+	const float over_threshold = m_target_frame_time_ms * m_degrade_threshold;
+	const float under_threshold = m_target_frame_time_ms * m_upgrade_threshold;
+
+	if (m_avg_frame_time_ms > over_threshold) {
+		m_seconds_over_budget += dt;
+		m_seconds_under_budget = 0.0f;
+	} else if (m_avg_frame_time_ms < under_threshold) {
+		m_seconds_under_budget += dt;
+		m_seconds_over_budget = 0.0f;
+	} else {
+		// In the acceptable band — decay both counters toward zero
+		m_seconds_over_budget = 0.0f;
+		m_seconds_under_budget = 0.0f;
+	}
+
+	if (m_seconds_over_budget >= m_degrade_interval_s) {
+		m_seconds_over_budget = 0.0f;
+		const float old = m_quality;
+		m_quality = m_quality - m_degrade_step;
+		if (m_quality < m_min_quality) m_quality = m_min_quality;
+		if (m_quality != old) {
+			emit_signal("quality_changed", m_quality);
+		}
+	} else if (m_seconds_under_budget >= m_upgrade_interval_s) {
+		m_seconds_under_budget = 0.0f;
+		const float old = m_quality;
+		m_quality = m_quality + m_upgrade_step;
+		if (m_quality > m_max_quality) m_quality = m_max_quality;
+		if (m_quality != old) {
+			emit_signal("quality_changed", m_quality);
+		}
+	}
 }
 
