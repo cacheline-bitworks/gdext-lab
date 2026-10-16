@@ -42,8 +42,8 @@ class VehicleBodyT2b : public VehicleBody {
 	CornerConfig m_rear_left;
 	CornerConfig m_rear_right;
 
-	// Tires (order: FL, FR, RL, RR)
-	Ref<TireModelV2> m_tires[4];
+	// Tires (order: FL, FR, RL, RR). Abstract base for runtime selection.
+	Ref<TireModel> m_tires[4];
 
 protected:
 	static void _bind_methods();
@@ -61,6 +61,10 @@ public:
 
 	float get_corner_load(int p_index) const;
 	float get_corner_compression(int p_index) const;
+		// Tire selection
+	int get_corner_count() const override { return 4; }
+	void set_corner_tire(int p_index, const Ref<TireModel> &p_tire) override;
+	Ref<TireModel> get_corner_tire(int p_index) const override;
 
 	void step(double p_delta) override;
 };

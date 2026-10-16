@@ -4,6 +4,7 @@
 #include <godot_cpp/variant/vector3.hpp>
 
 #include "simulated_entity.h"
+#include "tire_model.h"
 
 using namespace godot;
 
@@ -78,4 +79,17 @@ public:
 	float get_brake() const;
 	void set_steer(float p_val);
 	float get_steer() const;
+
+	// --- Tire selection ---
+	// Every tier has a fixed number of tire slots (2 for bicycle tiers,
+	// 4 for the rest). The type stored in each slot can be any concrete
+	// TireModel subclass — V1, V2, V3, or future versions. Dispatch is
+	// virtual, so the vehicle does not know which tire it is running.
+	virtual int get_corner_count() const = 0;
+
+	virtual void set_corner_tire(int p_index, const Ref<TireModel> &p_tire);
+	virtual Ref<TireModel> get_corner_tire(int p_index) const;
+
+	// Convenience: install the same tire at every corner.
+	void set_all_tires(const Ref<TireModel> &p_tire);
 };

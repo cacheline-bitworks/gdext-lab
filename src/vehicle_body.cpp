@@ -14,6 +14,8 @@ void VehicleBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_steer", "value"), &VehicleBody::set_steer);
 	ClassDB::bind_method(D_METHOD("get_steer"), &VehicleBody::get_steer);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "steer"), "set_steer", "get_steer");
+	
+	ClassDB::bind_method(D_METHOD("set_all_tires", "tire"), &VehicleBody::set_all_tires);
 }
 
 // 
@@ -92,4 +94,27 @@ void VehicleBody::integrate_wheel_spin(int p_index, float p_force_x,
 
 	if (m_omega[p_index] < 0.0f) m_omega[p_index] = 0.0f;
 	if (m_omega[p_index] > 500.0f) m_omega[p_index] = 500.0f;
+
+}
+// 
+// Tire selection defaults
+// 
+// These are overridden by every concrete tier. The defaults exist only to
+// catch a subclass that forgot to override them — better than a silent
+// no-op that makes tire swapping appear to work but do nothing.
+// 
+void VehicleBody::set_corner_tire(int, const Ref<TireModel> &) {
+	ERR_PRINT("VehicleBody::set_corner_tire not overridden by subclass.");
+}
+
+Ref<TireModel> VehicleBody::get_corner_tire(int) const {
+	ERR_PRINT("VehicleBody::get_corner_tire not overridden by subclass.");
+	return Ref<TireModel>();
+}
+
+void VehicleBody::set_all_tires(const Ref<TireModel> &p_tire) {
+	const int n = get_corner_count();
+	for (int i = 0; i < n; i++) {
+		set_corner_tire(i, p_tire);
+	}
 }

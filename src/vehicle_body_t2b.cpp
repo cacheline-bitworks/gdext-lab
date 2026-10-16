@@ -19,8 +19,11 @@ static void get_corner_position(int idx, float cg_front, float cg_rear,
 }
 
 VehicleBodyT2b::VehicleBodyT2b() {
+	// Default tires: V2 at all four corners.
 	for (int i = 0; i < 4; i++) {
-		m_tires[i].instantiate();
+		Ref<TireModelV2> v2;
+		v2.instantiate();
+		m_tires[i] = v2;
 	}
 }
 
@@ -33,6 +36,9 @@ void VehicleBodyT2b::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_roll_rate"), &VehicleBodyT2b::get_roll_rate);
 	ClassDB::bind_method(D_METHOD("get_corner_load", "index"), &VehicleBodyT2b::get_corner_load);
 	ClassDB::bind_method(D_METHOD("get_corner_compression", "index"), &VehicleBodyT2b::get_corner_compression);
+	ClassDB::bind_method(D_METHOD("get_corner_count"), &VehicleBodyT2b::get_corner_count);
+	ClassDB::bind_method(D_METHOD("set_corner_tire", "index", "tire"), &VehicleBodyT2b::set_corner_tire);
+	ClassDB::bind_method(D_METHOD("get_corner_tire", "index"), &VehicleBodyT2b::get_corner_tire);
 }
 
 float VehicleBodyT2b::get_yaw() const { return m_yaw; }
@@ -235,7 +241,7 @@ void VehicleBodyT2b::step(double p_delta) {
 	if (m_roll < -0.35f) m_roll = -0.35f;
 
 	// --- 15. Position ---
-	m_position.x += m_velocity.x * dt;
+		m_position.x += m_velocity.x * dt;
 	m_position.z += m_velocity.z * dt;
 
 	// --- 16. Wheel spin (base) ---
@@ -243,7 +249,23 @@ void VehicleBodyT2b::step(double p_delta) {
 		const float brake_torque = (i < 2)
 				? m_brake_input * m_max_brake_torque * 0.35f
 				: m_brake_input * m_max_brake_torque * 0.15f;
-				integrate_wheel_spin(i, tire_out[i].force_x, drive_per_wheel,
+		integrate_wheel_spin(i, tire_out[i].force_x, drive_per_wheel,
 				brake_torque, dt, 1.0f);
 	}
+}
+
+//
+// Tire selection
+//
+void VehicleBodyT2b::set_corner_tire(int p_index, const Ref<TireModel> &p_tire) {
+	if (p_index >= 0 && p_index < 4) {
+		m_tires[p_index] = p_tire;
+	} else {
+		ERR_PRINT("VehicleBodyT2b::set_corner_tire: index out of range (0-3)");
+	}
+}
+
+Ref<TireModel> VehicleBodyT2b::get_corner_tire(int p_index) const {
+	if (p_index >= 0 && p_index < 4) return m_tires[p_index];
+	return Ref<TireModel>();
 }

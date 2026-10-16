@@ -41,9 +41,10 @@ class VehicleBodyT2a : public VehicleBody {
 
 	SuspensionConfig m_suspension;
 
-	// Two V2 tires (bicycle model: front axle, rear axle)
-	Ref<TireModelV2> m_front_tire;
-	Ref<TireModelV2> m_rear_tire;
+	// Tire slots: 0 = front axle, 1 = rear axle. Abstract base for
+	// runtime tire selection.
+	Ref<TireModel> m_front_tire;
+	Ref<TireModel> m_rear_tire;
 
 protected:
 	static void _bind_methods();
@@ -57,6 +58,10 @@ public:
 	float get_yaw_rate() const;
 	float get_speed() const;
 	Vector3 get_velocity() const;
+		// Tire selection
+	int get_corner_count() const override { return 2; }
+	void set_corner_tire(int p_index, const Ref<TireModel> &p_tire) override;
+	Ref<TireModel> get_corner_tire(int p_index) const override;
 
 	// T2a-specific
 	float get_heave() const;

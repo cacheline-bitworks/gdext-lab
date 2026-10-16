@@ -7,8 +7,15 @@ constexpr float GRAVITY = 9.81f;
 }
 
 VehicleBodyT1::VehicleBodyT1() {
-	m_front_tire.instantiate();
-	m_rear_tire.instantiate();
+	// Default tires: V1 (cheapest tier, matches T1's "traffic AI" role).
+	// Use set_corner_tire() to swap at runtime.
+	Ref<TireModelV1> front_v1;
+	front_v1.instantiate();
+	m_front_tire = front_v1;
+
+	Ref<TireModelV1> rear_v1;
+	rear_v1.instantiate();
+	m_rear_tire = rear_v1;
 }
 
 void VehicleBodyT1::_bind_methods() {
@@ -16,6 +23,9 @@ void VehicleBodyT1::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_yaw_rate"), &VehicleBodyT1::get_yaw_rate);
 	ClassDB::bind_method(D_METHOD("get_speed"), &VehicleBodyT1::get_speed);
 	ClassDB::bind_method(D_METHOD("get_velocity"), &VehicleBodyT1::get_velocity);
+	ClassDB::bind_method(D_METHOD("get_corner_count"), &VehicleBodyT1::get_corner_count);
+	ClassDB::bind_method(D_METHOD("set_corner_tire", "index", "tire"), &VehicleBodyT1::set_corner_tire);
+	ClassDB::bind_method(D_METHOD("get_corner_tire", "index"), &VehicleBodyT1::get_corner_tire);
 }
 
 float VehicleBodyT1::get_yaw() const { return m_yaw; }
@@ -129,3 +139,21 @@ void VehicleBodyT1::step(double p_delta) {
 			m_throttle * m_max_engine_torque * 0.5f,
 			m_brake_input * m_max_brake_torque * 0.3f, dt, 2.0f);
 	}
+	//
+// Tire selection
+//
+void VehicleBodyT1::set_corner_tire(int p_index, const Ref<TireModel> &p_tire) {
+	if (p_index == 0) {
+		m_front_tire = p_tire;
+	} else if (p_index == 1) {
+		m_rear_tire = p_tire;
+	} else {
+		ERR_PRINT("VehicleBodyT1::set_corner_tire: index out of range (0-1)");
+	}
+}
+
+Ref<TireModel> VehicleBodyT1::get_corner_tire(int p_index) const {
+	if (p_index == 0) return m_front_tire;
+	if (p_index == 1) return m_rear_tire;
+	return Ref<TireModel>();
+}

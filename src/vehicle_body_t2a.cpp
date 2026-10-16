@@ -7,8 +7,14 @@ constexpr float GRAVITY = 9.81f;
 }
 
 VehicleBodyT2a::VehicleBodyT2a() {
-	m_front_tire.instantiate();
-	m_rear_tire.instantiate();
+	// Default tires: V2 (load sensitivity + combined slip).
+	Ref<TireModelV2> front_v2;
+	front_v2.instantiate();
+	m_front_tire = front_v2;
+
+	Ref<TireModelV2> rear_v2;
+	rear_v2.instantiate();
+	m_rear_tire = rear_v2;
 }
 
 void VehicleBodyT2a::_bind_methods() {
@@ -26,6 +32,10 @@ void VehicleBodyT2a::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_rear_compression"), &VehicleBodyT2a::get_rear_compression);
 	ClassDB::bind_method(D_METHOD("get_front_load"), &VehicleBodyT2a::get_front_load);
 	ClassDB::bind_method(D_METHOD("get_rear_load"), &VehicleBodyT2a::get_rear_load);
+
+	ClassDB::bind_method(D_METHOD("get_corner_count"), &VehicleBodyT2a::get_corner_count);
+	ClassDB::bind_method(D_METHOD("set_corner_tire", "index", "tire"), &VehicleBodyT2a::set_corner_tire);
+	ClassDB::bind_method(D_METHOD("get_corner_tire", "index"), &VehicleBodyT2a::get_corner_tire);
 }
 
 float VehicleBodyT2a::get_yaw() const { return m_yaw; }
@@ -204,4 +214,22 @@ void VehicleBodyT2a::step(double p_delta) {
 	integrate_wheel_spin(1, rear_out.force_x,
 			m_throttle * m_max_engine_torque * 0.5f,
 			m_brake_input * m_max_brake_torque * 0.3f, dt, 2.0f);
+}
+// 
+// Tire selection
+// 
+void VehicleBodyT2a::set_corner_tire(int p_index, const Ref<TireModel> &p_tire) {
+	if (p_index == 0) {
+		m_front_tire = p_tire;
+	} else if (p_index == 1) {
+		m_rear_tire = p_tire;
+	} else {
+		ERR_PRINT("VehicleBodyT2a::set_corner_tire: index out of range (0-1)");
+	}
+}
+
+Ref<TireModel> VehicleBodyT2a::get_corner_tire(int p_index) const {
+	if (p_index == 0) return m_front_tire;
+	if (p_index == 1) return m_rear_tire;
+	return Ref<TireModel>();
 }

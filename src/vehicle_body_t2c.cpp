@@ -10,8 +10,11 @@ constexpr float AIR_DENSITY = 1.225f;
 // Body frame: X forward, Y up, Z right
 
 VehicleBodyT2c::VehicleBodyT2c() {
+	// Default tires: V2 at all four corners.
 	for (int i = 0; i < 4; i++) {
-		m_tires[i].instantiate();
+		Ref<TireModelV2> v2;
+		v2.instantiate();
+		m_tires[i] = v2;
 	}
 	m_position.y = m_eq_height;
 	m_orientation = Quaternion();
@@ -41,11 +44,15 @@ void VehicleBodyT2c::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_corner_load", "index"), &VehicleBodyT2c::get_corner_load);
 	ClassDB::bind_method(D_METHOD("get_corner_compression", "index"), &VehicleBodyT2c::get_corner_compression);
 	ClassDB::bind_method(D_METHOD("get_steer_angle_for_corner", "index"), &VehicleBodyT2c::get_steer_angle_for_corner);
+
+		ClassDB::bind_method(D_METHOD("get_corner_count"), &VehicleBodyT2c::get_corner_count);
+	ClassDB::bind_method(D_METHOD("set_corner_tire", "index", "tire"), &VehicleBodyT2c::set_corner_tire);
+	ClassDB::bind_method(D_METHOD("get_corner_tire", "index"), &VehicleBodyT2c::get_corner_tire);
 }
 
-// ----------------------------------------------------------------------------
+// 
 // State accessors
-// ----------------------------------------------------------------------------
+// 
 float VehicleBodyT2c::get_speed() const { return m_velocity.length(); }
 Vector3 VehicleBodyT2c::get_velocity() const { return m_velocity; }
 Quaternion VehicleBodyT2c::get_orientation() const { return m_orientation; }
@@ -68,9 +75,9 @@ float VehicleBodyT2c::get_roll() const {
 	return std::atan2(up_world.z, up_world.y);
 }
 
-// ----------------------------------------------------------------------------
+// 
 // Aero accessors
-// ----------------------------------------------------------------------------
+// 
 void VehicleBodyT2c::set_drag_coefficient(float p_val) { m_drag_coefficient = p_val; }
 float VehicleBodyT2c::get_drag_coefficient() const { return m_drag_coefficient; }
 void VehicleBodyT2c::set_downforce_coefficient(float p_val) { m_downforce_coefficient = p_val; }
@@ -78,9 +85,9 @@ float VehicleBodyT2c::get_downforce_coefficient() const { return m_downforce_coe
 void VehicleBodyT2c::set_frontal_area(float p_val) { m_frontal_area = p_val; }
 float VehicleBodyT2c::get_frontal_area() const { return m_frontal_area; }
 
-// ----------------------------------------------------------------------------
+// 
 // Corner helpers
-// ----------------------------------------------------------------------------
+// 
 static Vector3 get_body_corner(int idx, float cg_front, float cg_rear,
 		float track_width, float eq_height) {
 	switch (idx) {
@@ -160,9 +167,9 @@ float VehicleBodyT2c::get_steer_angle_for_corner(int p_index) const {
 	return corner_steer_angle(p_index, base);
 }
 
-// ----------------------------------------------------------------------------
+// 
 // Default hooks (overridden by subclasses)
-// ----------------------------------------------------------------------------
+// 
 float VehicleBodyT2c::extra_corner_force(int, float, float) const {
 	return 0.0f;
 }
@@ -175,9 +182,9 @@ float VehicleBodyT2c::corner_camber_angle(int) const {
 	return 0.0f;
 }
 
-// ----------------------------------------------------------------------------
+// 
 // The physics step
-// ----------------------------------------------------------------------------
+// 
 void VehicleBodyT2c::step(double p_delta) {
 	const float dt = (float)p_delta;
 	if (dt <= 0.0f) return;
@@ -309,13 +316,15 @@ void VehicleBodyT2c::step(double p_delta) {
 	// --- 9. Angular integration ---
 	const Vector3 torque_body_raw = m_orientation.inverse().xform(total_torque_world);
 
-	// Torque-based damping. Matches the scalar-yaw tiers (T1/T2a/T2b)
-	// so all tiers have the same effective angular decay rate. At rest,
-	// damping coefficient = 200 * 16 = 3200 N·m/(rad/s). For yaw
-	// (inertia 3000) that's ~1.07/s — same as T1/T2a/T2b.
+	
+	// Yaw-only damping. Roll and pitch are damped by the suspension's own
+	// damper forces (which act at each corner and produce the correct
+	// torques). Applying this damping to all three axes double-damps roll
+	// and pitch, killing the natural oscillation that real cars have.
 	const float linear_speed = m_velocity.length();
 	const float damping_scale = 1.0f + 15.0f / (1.0f + linear_speed);
-	const Vector3 damping_torque = -m_angular_velocity * 200.0f * damping_scale;
+	const float yaw_damping = -m_angular_velocity.y * 200.0f * damping_scale;
+	const Vector3 damping_torque(0.0f, yaw_damping, 0.0f);
 	const Vector3 torque_body = torque_body_raw + damping_torque;
 
 	const Vector3 I_omega(
@@ -340,13 +349,28 @@ void VehicleBodyT2c::step(double p_delta) {
 		const Quaternion dq(axis, angle);
 		m_orientation = (m_orientation * dq).normalized();
 	}
-
 	// --- 11. Wheel spin (from base) ---
 	for (int i = 0; i < 4; i++) {
 		const float brake_t = (i < 2)
 				? m_brake_input * m_max_brake_torque * 0.35f
 				: m_brake_input * m_max_brake_torque * 0.15f;
-	 		integrate_wheel_spin(i, tire_out[i].force_x,
+		integrate_wheel_spin(i, tire_out[i].force_x,
 				m_throttle * m_max_engine_torque * 0.25f, brake_t, dt, 1.0f);
 	}
+}
+
+// -
+// Tire selection
+// 
+void VehicleBodyT2c::set_corner_tire(int p_index, const Ref<TireModel> &p_tire) {
+	if (p_index >= 0 && p_index < 4) {
+		m_tires[p_index] = p_tire;
+	} else {
+		ERR_PRINT("VehicleBodyT2c::set_corner_tire: index out of range (0-3)");
+	}
+}
+
+Ref<TireModel> VehicleBodyT2c::get_corner_tire(int p_index) const {
+	if (p_index >= 0 && p_index < 4) return m_tires[p_index];
+	return Ref<TireModel>();
 }
