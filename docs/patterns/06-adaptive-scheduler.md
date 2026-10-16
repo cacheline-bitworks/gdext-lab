@@ -215,3 +215,118 @@ needs adaptive quality scaling.
 - docs/patterns/01-frequency-lod.md - the base scheduler this builds on
 - src/simulation_scheduler.cpp - the implementation being extended
 - src/simulation_scheduler.h - the class that will gain the controller
+---
+
+# Implementation Notes
+
+The design above was written before the implementation. This section
+captures what we learned building it, including two real bugs the
+design did not anticipate.
+
+## Bug 1: `p_delta` Is Not Frame Time
+
+The original design said "use the scheduler's own delta for frame time."
+That was wrong.
+
+`p_delta` in `_physics_process` is Godot's **fixed simulation timestep**
+— 1/60 s at 60 Hz physics, or 1/200 s at 200 Hz. It never changes. It
+is a value Godot passes in, not an observation of how long the tick
+actually took.
+
+Feeding `p_delta` to the controller as "frame time" made it think every
+tick took exactly 16.67 ms. With a 5 ms budget, that reads as
+over-budget every tick, and the controller degraded to 0.1 during
+**idle** — no entities, no load, no reason to degrade.
+
+**Fix:** measure wall-clock time ourselves.
+
+    #include <godot_cpp/classes/time.hpp>
+    ...
+    const int64_t start = Time::get_singleton()->get_ticks_usec();
+    // ... do all the work ...
+    const int64_t end = Time::get_singleton()->get_ticks_usec();
+    const float elapsed_ms = (float)(end - start) / 1000.0f;
+    _update_quality(elapsed_ms, p_delta);
+
+The elapsed value reflects real work done by the scheduler's loop and
+every entity's `step()`. That's the number the controller needs.
+
+## Bug 2: Recovery Is Very Slow from a Deep Dive
+
+The asymmetry is deliberate — degrade fast, upgrade slow — but the
+numbers in the design doc understated how slow "slow" would be.
+
+From quality 0.1 back to 1.0 takes 18 upgrade steps × 2.0 s per step =
+**36 seconds minimum**. In practice it's longer because the tick must
+stay under budget *continuously* for each window.
+
+That's fine for a game session where the load drops and you have a few
+minutes to recover. It's not fine for a benchmark where you want to see
+the controller work. For the demo we lowered the target to 1 ms and
+loaded 50,000 entities to force visible change within a 20-second test.
+
+A future tweak: make the upgrade interval adaptive to how far below
+budget the tick is. Very-under-budget ticks could upgrade faster than
+marginally-under-budget ones. Not implemented — noted for later.
+
+## Verification Numbers
+
+Tested on an Intel UHD Graphics 605 laptop (Pop!_OS, 4 cores):
+
+| Phase | Load | Quality | Avg freq |
+|---|---|---|---|
+| Idle | 0 entities | 1.0 (stable) | — |
+| Load | 50,000 entities | 1.0 → 0.1 in ~5 s | 172 → 17 |
+| Unload | 0 entities | 0.1 → 0.4 in ~8 s | — |
+
+The frequency scaling is exactly linear:
+
+    avg_freq = base_freq × quality
+    172 × 1.0 = 172
+    172 × 0.8 = 137.6   (matches observed 137.6)
+    172 × 0.5 = 86.0    (matches observed 86.0)
+    172 × 0.1 = 17.2    (matches observed 17.2)
+
+The controller's frequency multiplier is provably correct.
+
+## What the Controller Does NOT Do
+
+- **Per-subsystem scaling.** All entities share one quality value.
+  A future version could give particles, physics, and AI separate
+  quality levels, so the controller degrades the cheapest first.
+- **GPU-bound detection.** If the frame time is dominated by
+  rendering, reducing simulation frequency doesn't help. The
+  controller degrades anyway, wasting the CPU savings. Detecting
+  GPU-bound would require reading the engine's frame time (not just
+  our tick), which is a future extension.
+- **Threading.** Everything runs on the main thread. Worker threads
+  are T2/T3 concerns.
+- **Hysteresis on the input.** If frame time oscillates right at the
+  threshold, the EMA smooths it, but a pathological workload could
+  still cause the controller to flap between degrade and upgrade
+  states. The up/down asymmetry mitigates this but doesn't eliminate
+  it.
+- **Signal batching.** Each quality step emits `quality_changed`
+  individually. If the UI wants to animate a smooth quality
+  transition, it must lerp internally.
+
+## The `quality_changed` Signal
+
+    ADD_SIGNAL(MethodInfo("quality_changed",
+            PropertyInfo(Variant::FLOAT, "quality")));
+
+Fires once per step of quality — not per frame. During a 5-second
+degrade from 1.0 to 0.1, it fires nine times. During a 20-second
+recovery it fires roughly a dozen times. A UI can connect to this to
+animate a quality indicator or log the transitions.
+
+Because the signal carries a single float, C# can connect to it with
+`stats.QualityChanged += (float q) => { ... };` — same interop pattern
+as any other signal with a numeric argument.
+
+## Files
+
+- `src/simulation_scheduler.h` / `.cpp` — the controller lives here
+- `demo/adaptive_scheduler_test.gd` — verification demo
+- `docs/patterns/01-frequency-lod.md` — the base priority-based
+  scheduler that this builds on
