@@ -312,43 +312,6 @@ This does not rebuild `godot-cpp` (which is slow). Only your files.
 
 ---
 
-## 11. Special Character Corruption in Terminal Pastes
-
-**Symptom**
-
-Content pasted through terminal heredocs shows up with mojibake characters
-instead of em-dashes or other Unicode punctuation.
-
-**Cause**
-
-Terminal encoding mismatches, especially when content contains Unicode
-punctuation or emoji.
-
-**Fix**
-
-Use a file editor (VS Code, nano, vim) instead of terminal heredocs for
-files containing non-ASCII characters. Or, better: keep the content
-ASCII-only when possible.
-
----
-
----
-
-## Adding New Entries
-
-When you hit something that takes more than 15 minutes to figure out, add an
-entry here. Structure:
-
-**Symptom** -- the exact error, where it appeared, what you were doing.
-
-**Cause** -- your best understanding, even if approximate.
-
-**Fix** -- what actually resolved it.
-
-The symptom is the most important part. That is what someone will search for.
-
----
-
 ## 12. SCons Silently Skips Relinking
 
 **Symptom**

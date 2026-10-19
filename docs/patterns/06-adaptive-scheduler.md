@@ -217,7 +217,7 @@ needs adaptive quality scaling.
 - src/simulation_scheduler.h - the class that will gain the controller
 ---
 
-# Implementation Notes
+## Implementation Notes
 
 The design above was written before the implementation. This section
 captures what we learned building it, including two real bugs the
@@ -240,13 +240,15 @@ over-budget every tick, and the controller degraded to 0.1 during
 
 **Fix:** measure wall-clock time ourselves.
 
-    #include <godot_cpp/classes/time.hpp>
-    ...
-    const int64_t start = Time::get_singleton()->get_ticks_usec();
-    // ... do all the work ...
-    const int64_t end = Time::get_singleton()->get_ticks_usec();
-    const float elapsed_ms = (float)(end - start) / 1000.0f;
-    _update_quality(elapsed_ms, p_delta);
+```cpp
+#include <godot_cpp/classes/time.hpp>
+// ...
+const int64_t start = Time::get_singleton()->get_ticks_usec();
+// ... do all the work ...
+const int64_t end = Time::get_singleton()->get_ticks_usec();
+const float elapsed_ms = (float)(end - start) / 1000.0f;
+_update_quality(elapsed_ms, p_delta);
+```
 
 The elapsed value reflects real work done by the scheduler's loop and
 every entity's `step()`. That's the number the controller needs.
@@ -281,11 +283,13 @@ Tested on an Intel UHD Graphics 605 laptop (Pop!_OS, 4 cores):
 
 The frequency scaling is exactly linear:
 
-    avg_freq = base_freq × quality
-    172 × 1.0 = 172
-    172 × 0.8 = 137.6   (matches observed 137.6)
-    172 × 0.5 = 86.0    (matches observed 86.0)
-    172 × 0.1 = 17.2    (matches observed 17.2)
+```text
+avg_freq = base_freq × quality
+172 × 1.0 = 172
+172 × 0.8 = 137.6   (matches observed 137.6)
+172 × 0.5 = 86.0    (matches observed 86.0)
+172 × 0.1 = 17.2    (matches observed 17.2)
+```
 
 The controller's frequency multiplier is provably correct.
 

@@ -15,7 +15,9 @@ smallest thing that could work" lies.
 A tire model is a function. It receives the current state of a tire and
 returns the forces and moments that tire generates against the ground.
 
-    inputs  -->  [TIRE MODEL]  -->  outputs
+```text
+inputs  -->  [TIRE MODEL]  -->  outputs
+```
 
 The inputs are physical quantities. The outputs are forces in the tire's
 local coordinate frame. That's it. Everything else — suspension, mass,
@@ -36,7 +38,9 @@ A tire model takes some subset of these. The minimal model uses four.
 - **Slip ratio (kappa)** — how much the tire is rotating faster or slower
   than its ground speed would suggest. Defined as:
 
-      kappa = (omega * R - vx) / |vx|
+```text
+  kappa = (omega * R - vx) / |vx|
+```
 
   Where `omega` is wheel angular velocity, `R` is effective radius, and
   `vx` is longitudinal velocity. Zero means free rolling. Positive means
@@ -46,7 +50,9 @@ A tire model takes some subset of these. The minimal model uses four.
 - **Slip angle (alpha)** — the angle between the tire's pointing direction
   and its actual velocity direction. Defined as:
 
-      alpha = atan2(vy, |vx|)
+```text
+  alpha = atan2(vy, |vx|)
+```
 
   Where `vy` is lateral velocity. Zero means the tire is moving exactly
   where it points. Larger means the tire is sliding sideways.
@@ -89,19 +95,21 @@ Here is the fundamental observation that makes tire physics what it is:
 
 If you plot Fx against slip ratio kappa, the curve looks like this:
 
-    Fx
-    ^
-    |         ___
-    |        /   \
-    |       /     \
-    |      /       \___
-    |     /
-    |    /
-    |   /
-    |  /
-    | /
-    +------------------> kappa
-    0
+```text
+Fx
+^
+|         ___
+|        /   \
+|       /     \
+|      /       \___
+|     /
+|    /
+|   /
+|  /
+| /
++------------------> kappa
+0
+```
 
 - At kappa = 0, Fx = 0. Free rolling, no force.
 - As kappa increases, Fx rises steeply. This is the "linear region."
@@ -129,7 +137,9 @@ that happens to match real tire data very well.
 
 The formula has this form:
 
-    F = D * sin(C * atan(B * x - E * (B * x - atan(B * x))))
+```text
+F = D * sin(C * atan(B * x - E * (B * x - atan(B * x))))
+```
 
 Where x is the slip input (kappa or alpha), and:
 
@@ -147,8 +157,10 @@ than getting the exact coefficients right on the first try.
 
 A minimal tire model looks like this:
 
-    Fx = mu * Fz * f_longitudinal(kappa)
-    Fy = mu * Fz * f_lateral(alpha)
+```text
+Fx = mu * Fz * f_longitudinal(kappa)
+Fy = mu * Fz * f_lateral(alpha)
+```
 
 Where `f_longitudinal` and `f_lateral` are each a curve of the shape above,
 scaled to peak at 1.0.
