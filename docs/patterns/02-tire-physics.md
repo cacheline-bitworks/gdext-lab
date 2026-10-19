@@ -1,214 +1,141 @@
 # Tire Physics: The Shape of the Problem
 
-Before writing a single line of C++, we need a map. A tire model is not a
-small thing — it is the single most complex subsystem in a vehicle simulator.
-But the *minimal* version is small. This document describes what a tire model
-actually does, what it takes in, what it produces, and what the smallest
-useful implementation looks like.
+A tire model is a mathematical function. It receives the current state of
+a tire (slip, load, surface) and returns the forces that tire generates
+against the ground.
 
-The goal is not to understand every coefficient. The goal is to know what
-the inputs are, what the outputs are, and where the boundary of "the
-smallest thing that could work" lies.
+Everything else — suspension, mass, aerodynamics, engine torque — lives
+outside the model. The tire is an isolated system. That isolation is what
+makes it testable.
 
-## What a Tire Model Does
+## The Two Inputs That Matter
 
-A tire model is a function. It receives the current state of a tire and
-returns the forces and moments that tire generates against the ground.
+A tire model takes many inputs, but for a dynamic simulation, two of them
+dominate everything else: **Vertical Load** and **Slip**.
 
-```text
-inputs  -->  [TIRE MODEL]  -->  outputs
-```
+**1. Vertical Load (Fz)**
 
-The inputs are physical quantities. The outputs are forces in the tire's
-local coordinate frame. That's it. Everything else — suspension, mass,
-aerodynamics, driver input — lives outside the model. The tire model is
-isolated, and that isolation is what makes it testable.
+How hard the tire is pressed into the ground. This changes everything.
+Tires generate more force under more load, but not linearly.
 
-## Inputs
+**2. Slip**
 
-A tire model takes some subset of these. The minimal model uses four.
+Slip is the difference between the wheel's velocity and the ground's
+velocity. It comes in two forms:
 
-**Required by every model:**
+- **Slip Ratio (kappa)** — Longitudinal. How much the tire is rotating
+  faster or slower than the ground speed would suggest.
 
-- **Vertical load (Fz)** — how hard the tire is pressed into the ground.
-  This changes everything. Tires generate more force under more load, but
-  not linearly. Getting the load dependence wrong is the most common
-  mistake in naive tire models.
+      kappa = (omega * R - vx) / |vx|
 
-- **Slip ratio (kappa)** — how much the tire is rotating faster or slower
-  than its ground speed would suggest. Defined as:
+  Zero means free rolling. Positive means the tire is spinning (wheelspin).
+  Negative means the tire is locked (braking lockup).
 
-```text
-  kappa = (omega * R - vx) / |vx|
-```
+- **Slip Angle (alpha)** — Lateral. The angle between where the tire is
+  pointing and where it is actually going.
 
-  Where `omega` is wheel angular velocity, `R` is effective radius, and
-  `vx` is longitudinal velocity. Zero means free rolling. Positive means
-  the tire is spinning (wheelspin). Negative means the tire is locked
-  (braking lockup).
+      alpha = atan2(vy, |vx|)
 
-- **Slip angle (alpha)** — the angle between the tire's pointing direction
-  and its actual velocity direction. Defined as:
+  Zero means the tire is moving exactly where it points. Larger means the
+  tire is sliding sideways.
 
-```text
-  alpha = atan2(vy, |vx|)
-```
+## The Magic Formula (Pacejka)
 
-  Where `vy` is lateral velocity. Zero means the tire is moving exactly
-  where it points. Larger means the tire is sliding sideways.
+In 1987, Hans Pacejka published an empirical curve fit that matches real
+tire data with astonishing accuracy. It is called the "Magic Formula"
+because it has no physical derivation — it is purely mathematical, but it
+works.
 
-- **Surface friction (mu)** — a scalar representing how grippy the ground
-  is. Asphalt in dry conditions is ~1.0. Ice is ~0.1. Wet asphalt varies
-  from ~0.4 to ~0.9 depending on water depth.
+The formula is:
 
-**Used by more advanced models:**
+    F(x) = D * sin(C * atan(B*x - E * (B*x - atan(B*x))))
 
-- **Tire temperature** — affects grip. Cold tires grip poorly, optimal
-  tires grip best, overheated tires lose grip.
-- **Tire wear** — tread depth changes the friction curve over time.
-- **Tire pressure** — affects the shape of the contact patch.
-- **Camber angle** — the tilt of the wheel relative to vertical.
-- **Relaxation length** — a lag term, because tires don't generate force
-  instantly. Force builds over distance traveled.
+Where `x` is the slip input (kappa or alpha). The coefficients are:
 
-For the first implementation, we ignore all of the advanced ones. Pure slip,
-constant friction, no lag, no thermal.
+- **B: Stiffness.** How steeply the curve rises from zero.
+- **C: Shape.** Controls the overall width and shape of the peak.
+- **D: Peak.** The maximum force the tire can produce.
+- **E: Curvature.** Controls the shape of the curve near the peak.
 
-## Outputs
+In our V1 model, `D = mu * Fz`. The curve peaks exactly at `D`, and falls
+off beyond the peak slip value.
 
-Three forces and moments, expressed in the tire's local frame:
+## The Peak-and-Fall Shape
 
-- **Fx** — longitudinal force (forward/backward). This is what accelerates
-  and brakes the vehicle.
-- **Fy** — lateral force (sideways). This is what turns the vehicle.
-- **Mz** — aligning moment. The torque that tries to straighten the tire.
-  Often ignored in simple models because its contribution to handling feel
-  is subtle.
-
-For a first version, we produce Fx and Fy. Mz comes later.
-
-## The Friction Curve
-
-Here is the fundamental observation that makes tire physics what it is:
+This is the most important concept in tire physics:
 
 **Grip rises, peaks, then falls as slip increases.**
 
-If you plot Fx against slip ratio kappa, the curve looks like this:
+If you plot Fx against slip ratio kappa, it looks like a mountain.
 
-```text
-Fx
-^
-|         ___
-|        /   \
-|       /     \
-|      /       \___
-|     /
-|    /
-|   /
-|  /
-| /
-+------------------> kappa
-0
-```
+- At `kappa = 0`, force is zero (free rolling).
+- As `kappa` increases, force rises steeply (the linear region).
+- Around `kappa = 0.1` to `0.15`, the force reaches its peak.
+- Beyond the peak, force *decreases*. More slip produces less force.
 
-- At kappa = 0, Fx = 0. Free rolling, no force.
-- As kappa increases, Fx rises steeply. This is the "linear region."
-- Around kappa = 0.1 to 0.15, Fx reaches its peak. This is peak grip.
-- Beyond the peak, Fx *decreases*. More slip produces less force. This is
-  the "sliding region."
+This is why braking lockup is dangerous. You don't just skid; you
+*generate less braking force* than you would with a small amount of slip.
 
-The same shape applies to Fy versus slip angle alpha, with the peak around
-alpha = 6 to 10 degrees depending on the tire.
+## The Three Tiers of Tire Physics
 
-**This peak-and-fall shape is what makes driving a car hard.** When you're
-below the peak, everything feels predictable. When you cross it, the car
-suddenly has less grip than it did a moment ago, and the driver has to
-respond — this is the edge of control that racing drivers spend years
-mastering.
+We built three models, each adding one more layer of physical reality.
 
-A tire model that gets this shape wrong will feel wrong, no matter how
-sophisticated the rest of the vehicle simulation is.
+### V1: The Pacejka Baseline
 
-## Pacejka's Magic Formula
+V1 models pure slip. It assumes friction is constant regardless of load,
+and that longitudinal and lateral forces are independent.
 
-The "Magic Formula" is an empirical curve fit developed by Hans Pacejka in
-the 1980s. It is not derived from physics. It is a mathematical function
-that happens to match real tire data very well.
+- **Shape:** Peak-and-fall curve.
+- **Weakness:** It cannot corner and brake at the same time. It gives full
+  lateral force even when the tire is using 100% of its grip to brake.
 
-The formula has this form:
+### V2: Load Sensitivity and Combined Slip
 
-```text
-F = D * sin(C * atan(B * x - E * (B * x - atan(B * x))))
-```
+Real tires do not scale grip linearly with load. Double the load, and you
+get ~1.7x the grip. This is called **load sensitivity**.
 
-Where x is the slip input (kappa or alpha), and:
+More importantly, a tire only has **one friction budget**. If you use it
+to brake, you cannot use it to turn. V2 models this with a **friction
+ellipse**:
 
-- **B** — stiffness factor. Controls how steeply the curve rises.
-- **C** — shape factor. Controls the overall shape.
-- **D** — peak factor. Controls the maximum force value.
-- **E** — curvature factor. Controls the shape near the peak.
+    (Fx / Fx_max)^2 + (Fy / Fy_max)^2 <= 1
 
-For our purposes, we can simplify. The full formula has more parameters
-and combined-slip terms, but the *shape* of the output curve is captured
-by this four-parameter version. Getting the shape right is more important
-than getting the exact coefficients right on the first try.
+If the tire tries to exceed this ellipse, both forces are scaled down
+until they fit inside. This is what makes trail-braking possible, and it's
+what makes a V2 car understeer when you apply throttle mid-corner.
 
-## The Simplified Version
+### V3: Relaxation Length
 
-A minimal tire model looks like this:
+V1 and V2 are stateless. They assume a tire responds instantly to a change
+in slip.
 
-```text
-Fx = mu * Fz * f_longitudinal(kappa)
-Fy = mu * Fz * f_lateral(alpha)
-```
+Real tires do not do this. The rubber carcass deforms over distance. When
+you turn the wheel, it takes a few centimeters of travel before the tire
+produces full lateral force.
 
-Where `f_longitudinal` and `f_lateral` are each a curve of the shape above,
-scaled to peak at 1.0.
+V3 adds a first-order lag to the slip values:
 
-This is not accurate. Real tires have load sensitivity (grip decreases under
-high load), friction ellipse constraints (Fx and Fy interact), and many
-more subtleties. But this version captures the essential behavior:
+    d(slip)/dt = (vx / sigma) * (target_slip - current_slip)
 
-- Grip rises with slip
-- Grip peaks and then falls
-- Both longitudinal and lateral forces follow the same general curve
-- Vertical load scales the whole thing
+Where `sigma` is the relaxation length (typically 0.5 m).
 
-From this, a car can be made to drive. It can be made to feel like a car
-being pushed to its limits. The rest is refinement.
+This lag is what makes a car's response feel like a car instead of a
+video game. It gives the driver a window to countersteer during a slide,
+and it smooths the transition between grip and slip.
 
-## What We Are Not Doing Yet
+## What We Chose Not to Model
 
-- **Load sensitivity**: real tires generate less grip per unit load as
-  load increases. Ignored in v1.
-- **Combined slip**: Fx and Fy interact. If you brake hard, you lose
-  lateral grip. Ignored in v1.
-- **Relaxation length**: real tires take time and distance to build
-  forces. Ignored in v1.
-- **Thermal**: temperature changes grip. Ignored in v1.
-- **Wear**: tread wears, grip changes. Ignored in v1.
-- **Camber**: wheel angle affects contact patch. Ignored in v1.
+We deliberately stopped at V3. The remaining physics models are:
 
-Every one of these is a follow-up. Each adds realism and complexity in
-that order. We will layer them in as we validate the previous level.
+- **V4 (Thermal):** Temperature changes grip. Cold tires slip, hot tires
+  grip, overheated tires blister. (Faked at the frontend layer.)
+- **V5 (Wear):** Tread depth changes over time. (Faked at the frontend.)
 
-## The Plan
-
-1. **v1**: Pure slip Pacejka, constant friction, one tire, no load
-   sensitivity. Test by plotting Fx vs kappa and Fy vs alpha against
-   known curves.
-2. **v2**: Add load sensitivity. Replot.
-3. **v3**: Add combined slip (friction ellipse). This is where the model
-   starts to feel like a real tire.
-4. **v4**: Add relaxation length. Now transient behavior works.
-5. **v5**: Add thermal. Now lap times change as tires warm up.
-
-Each version is testable. Each version is measurable. We do not move to
-the next version until the current one is validated.
+For our purposes, V3 is the highest fidelity needed for a realistic
+driving simulator. The rest are game mechanics layered on top.
 
 ## References
 
-- `docs/patterns/01-frequency-lod.md` — the scheduler that will run
-  these tires at variable frequencies
-- `src/simulated_entity.h` — the class we will subclass for the vehicle
-- `src/simulation_scheduler.h` — the system that will step the vehicle
+- `src/tire_model_v1.cpp` — Pacejka + falloff
+- `src/tire_model_v2.cpp` — Load sensitivity + friction ellipse
+- `src/tire_model_v3.cpp` — Relaxation length

@@ -247,6 +247,8 @@ const int64_t start = Time::get_singleton()->get_ticks_usec();
 // ... do all the work ...
 const int64_t end = Time::get_singleton()->get_ticks_usec();
 const float elapsed_ms = (float)(end - start) / 1000.0f;
+```
+```
 _update_quality(elapsed_ms, p_delta);
 ```
 
