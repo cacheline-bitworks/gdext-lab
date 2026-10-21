@@ -24,6 +24,11 @@ class TireModelV2 : public TireModelV1 {
 	// V2-specific state
 	float m_nominal_load = 4000.0f;
 	float m_load_sensitivity = 0.15f;
+	
+	// Pneumatic trail (meters). The distance between the contact patch
+	// center and the point where lateral force is actually applied.
+	// Creates the self-aligning torque (moment_z).
+	float m_pneumatic_trail = 0.05f;
 
 protected:
 	static void _bind_methods();
@@ -41,8 +46,9 @@ public:
 	TireModelV2() = default;
 	~TireModelV2() override = default;
 
-	WheelOutput step(const WheelInput &p_input) override;
-
+	WheelOutput step(const WheelInput &p_input) override;	
+	void set_pneumatic_trail(float p_val);
+	float get_pneumatic_trail() const;
 Dictionary step_gd(float p_omega, float p_torque, float p_brake_torque,
 			float p_vertical_load, float p_friction, float p_radius,
 			float p_vel_long, float p_vel_lat, float p_steer_angle,
@@ -57,5 +63,5 @@ Dictionary step_gd(float p_omega, float p_torque, float p_brake_torque,
 	float get_load_sensitivity() const;
 
 	// Compute effective friction after load sensitivity correction.
-	float effective_mu(float p_load, float p_friction) const;
+	virtual float effective_mu(float p_load, float p_friction) const;
 };

@@ -29,6 +29,10 @@ void TireModelV2::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_load_sensitivity", "k"), &TireModelV2::set_load_sensitivity);
 	ClassDB::bind_method(D_METHOD("get_load_sensitivity"), &TireModelV2::get_load_sensitivity);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "load_sensitivity"), "set_load_sensitivity", "get_load_sensitivity");
+    
+	ClassDB::bind_method(D_METHOD("set_pneumatic_trail", "value"), &TireModelV2::set_pneumatic_trail);
+	ClassDB::bind_method(D_METHOD("get_pneumatic_trail"), &TireModelV2::get_pneumatic_trail);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "pneumatic_trail"), "set_pneumatic_trail", "get_pneumatic_trail");
 }
 
 //
@@ -210,10 +214,18 @@ WheelOutput TireModelV2::step(const WheelInput &p_input) {
 		fx = 0.0f;
 		fy = 0.0f;
 	}
+		// 5. Aligning Torque (moment_z)
+	// The lateral force acts at the pneumatic trail distance behind the 
+	// contact patch center, creating a torque that straightens the wheel.
+	output.moment_z = -fy * m_pneumatic_trail;
 
 	output.force_x = fx;
 	output.force_y = fy;
-	output.moment_z = 0.0f;
+
+
+	output.force_x = fx;
+	output.force_y = fy;
+	
 
 	return output;
 }
@@ -248,4 +260,11 @@ Dictionary TireModelV2::step_gd(float p_omega, float p_torque, float p_brake_tor
 	result["slip_ratio"] = out.slip_ratio;
 	result["slip_angle"] = out.slip_angle;
 	return result;
+}
+void TireModelV2::set_pneumatic_trail(float p_val) {
+	m_pneumatic_trail = p_val < 0.0f ? 0.0f : p_val;
+}
+
+float TireModelV2::get_pneumatic_trail() const {
+	return m_pneumatic_trail;
 }
