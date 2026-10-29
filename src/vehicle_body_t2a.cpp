@@ -59,14 +59,24 @@ float VehicleBodyT2a::get_rear_compression() const {
 float VehicleBodyT2a::get_front_load() const {
 	const float static_load = m_mass * GRAVITY * (m_cg_to_rear / m_wheel_base);
 	const float dev = -m_heave - m_pitch * m_cg_to_front;
-	float load = static_load + m_suspension.spring_rate_front * dev;
+	const float vel = m_heave_velocity + m_pitch_rate * m_cg_to_front;
+	const float spring_f = m_suspension.spring_rate_front * dev;
+	const float damper_f = (vel > 0.0f)
+			? -m_suspension.damper_rebound_front * vel
+			: -m_suspension.damper_bump_front * vel;
+	float load = static_load + spring_f + damper_f;
 	return load < 0.0f ? 0.0f : load;
 }
 
 float VehicleBodyT2a::get_rear_load() const {
 	const float static_load = m_mass * GRAVITY * (m_cg_to_front / m_wheel_base);
 	const float dev = -m_heave + m_pitch * m_cg_to_rear;
-	float load = static_load + m_suspension.spring_rate_rear * dev;
+	const float vel = m_heave_velocity - m_pitch_rate * m_cg_to_rear;
+	const float spring_f = m_suspension.spring_rate_rear * dev;
+	const float damper_f = (vel > 0.0f)
+			? -m_suspension.damper_rebound_rear * vel
+			: -m_suspension.damper_bump_rear * vel;
+	float load = static_load + spring_f + damper_f;
 	return load < 0.0f ? 0.0f : load;
 }
 
@@ -131,6 +141,7 @@ void VehicleBodyT2a::step(double p_delta) {
 	front_input.wheel_radius = m_wheel_radius;
 	front_input.velocity_longitudinal = vx_body;
 	front_input.velocity_lateral = vz_body - m_yaw_rate * m_cg_to_front;
+	front_input.dt = dt;
 
 	WheelInput rear_input;
 	rear_input.steer_angle = 0.0f;
@@ -142,6 +153,7 @@ void VehicleBodyT2a::step(double p_delta) {
 	rear_input.wheel_radius = m_wheel_radius;
 	rear_input.velocity_longitudinal = vx_body;
 	rear_input.velocity_lateral = vz_body + m_yaw_rate * m_cg_to_rear;
+	rear_input.dt = dt;
 
 	// --- 7. Tires ---
 	const WheelOutput front_out = m_front_tire->step(front_input);
