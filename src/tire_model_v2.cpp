@@ -3,7 +3,7 @@
 #include <cmath>
 
 namespace {
-constexpr float SLIP_EPSILON = 2.0f;
+using TireConstants::SLIP_EPSILON;
 }
 
 // 
@@ -214,18 +214,15 @@ WheelOutput TireModelV2::step(const WheelInput &p_input) {
 		fx = 0.0f;
 		fy = 0.0f;
 	}
-		// 5. Aligning Torque (moment_z)
-	// The lateral force acts at the pneumatic trail distance behind the 
-	// contact patch center, creating a torque that straightens the wheel.
+		
 	output.moment_z = -fy * m_pneumatic_trail;
 
 	output.force_x = fx;
 	output.force_y = fy;
 
 
-	output.force_x = fx;
-	output.force_y = fy;
-	
+
+
 
 	return output;
 }

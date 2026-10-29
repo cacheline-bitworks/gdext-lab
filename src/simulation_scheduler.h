@@ -41,8 +41,8 @@ class SimulationScheduler : public Node {
 	float m_max_quality = 1.0f;
 
 	// Smoothed measurement of how long _physics_process actually takes.
-	// Initialized to the target so the first few ticks don't trigger
-	// false degradation before the EMA converges.
+	// Initialized below the target so the first few ticks of the EMA don't
+	// trigger false degradation before real measurements arrive.
 	float m_avg_frame_time_ms = 5.0f;
 	float m_seconds_over_budget = 0.0f;
 	float m_seconds_under_budget = 0.0f;

@@ -76,10 +76,15 @@ float VehicleBodyT2b::get_corner_load(int p_index) const {
 	const float static_load = (p_index < 2) ? static_front : static_rear;
 
 	const float compression = -m_heave - m_pitch * x + m_roll * z;
-	float load = static_load + cfg->spring_rate * compression;
+	const float corner_vel = m_heave_velocity + m_pitch_rate * x - m_roll_rate * z;
+	const float spring_f = cfg->spring_rate * compression;
+	const float damper_f = (corner_vel > 0.0f)
+			? -cfg->damper_rebound * corner_vel
+			: -cfg->damper_bump * corner_vel;
+
+	float load = static_load + spring_f + damper_f;
 	return load < 0.0f ? 0.0f : load;
 }
-
 void VehicleBodyT2b::step(double p_delta) {
 	const float dt = (float)p_delta;
 	if (dt <= 0.0f) return;

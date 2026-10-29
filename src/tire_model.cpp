@@ -5,7 +5,7 @@
 #include <cmath>
                                                                                                                  
 namespace {
-constexpr float SLIP_EPSILON = 2.0f;  // m/s, minimum speed for slip ratio calculation
+using TireConstants::SLIP_EPSILON; // tire constants live in tire_model.h now
 }
 
 //

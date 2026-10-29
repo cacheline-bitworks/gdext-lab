@@ -5,6 +5,11 @@
 
 using namespace godot;
 
+// Shared simulation constant. Defined here so V1 and V2 can't drift.
+namespace TireConstants {
+inline constexpr float SLIP_EPSILON = 2.0f;
+}
+
 // 
 // WheelInput - everything the tire model needs to know about the outside world
 // 
@@ -54,8 +59,7 @@ public:
 
 	virtual WheelOutput step(const WheelInput &p_input) = 0;
 
-	// Clear any per-tire state (V3's relaxation history, thermal, wear).
-	// V1 and V2 are stateless — default implementation is a no-op.
+	
 	virtual void reset() {}
 };
 

@@ -134,6 +134,17 @@ We deliberately stopped at V3. The remaining physics models are:
 For our purposes, V3 is the highest fidelity needed for a realistic
 driving simulator. The rest are game mechanics layered on top.
 
+### V4: Thermal Modeling
+
+Tires generate heat when they slide. Real racing tires have an optimal temperature window (usually around 80°C to 100°C). 
+
+- If they are too cold, the rubber is hard and grip is low.
+- If they are too hot, the rubber blisters and turns "greasy," dropping grip.
+
+V4 adds a temperature state to the tire. It generates heat based on the slip power (`Force * Slip Velocity`) and cools down based on airflow (vehicle speed) and ambient track temperature.
+
+This is what makes burnouts matter, and what forces endurance racers to manage their tires over a long stint.
+
 ## References
 
 - `src/tire_model_v1.cpp` — Pacejka + falloff

@@ -138,7 +138,7 @@ void VehicleBodyT1::step(double p_delta) {
 	integrate_wheel_spin(1, rear_out.force_x,
 			m_throttle * m_max_engine_torque * 0.5f,
 			m_brake_input * m_max_brake_torque * 0.3f, dt, 2.0f);
-	}
+}
 	//
 // Tire selection
 //

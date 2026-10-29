@@ -41,7 +41,7 @@ func _physics_process(delta: float) -> void:
 	var r2: Dictionary = tire_v2.step_gd(
 		50.0, 0.0, 0.0, load, 1.0, 0.33, vx, vy, 0.0, 0.0)
 	var r3: Dictionary = tire_v3.step_gd_with_dt(
-		50.0, 0.0, 0.0, load, 1.0, 0.33, vx, vy, 0.0, dt)
+		50.0, 0.0, 0.0, load, 1.0, 0.33, vx, vy, 0.0, 0.0, dt)
 
 	print("%5d | %10.1f %10.1f | %10.4f %10.4f" % [
 		tick,

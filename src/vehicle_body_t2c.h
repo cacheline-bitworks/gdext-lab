@@ -6,7 +6,7 @@
 #include "vehicle_body.h"
 #include "tire_model.h"
 #include "tire_model_v2.h"
-#include "tire_model_v3.h"
+
 
 using namespace godot;
 

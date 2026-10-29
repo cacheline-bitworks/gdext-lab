@@ -18,7 +18,7 @@ struct SuspensionConfig {
 	float damper_rebound_front = 8000.0f;
 	float damper_bump_rear = 4500.0f;
 	float damper_rebound_rear = 9000.0f;
-	float nominal_load = 4000.0f;
+	
 };
 
 // 

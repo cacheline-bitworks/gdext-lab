@@ -10,8 +10,17 @@ void TireModelV4::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_temperature", "value"), &TireModelV4::set_temperature);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "temperature"), "set_temperature", "get_temperature");
 
+	ClassDB::bind_method(D_METHOD("set_heating_rate", "value"), &TireModelV4::set_heating_rate);
+    ClassDB::bind_method(D_METHOD("get_heating_rate"), &TireModelV4::get_heating_rate);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "heating_rate"), "set_heating_rate", "get_heating_rate");
+
+    ClassDB::bind_method(D_METHOD("set_cooling_rate", "value"), &TireModelV4::set_cooling_rate);
+    ClassDB::bind_method(D_METHOD("get_cooling_rate"), &TireModelV4::get_cooling_rate);
+    ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cooling_rate"), "set_cooling_rate", "get_cooling_rate");
+
 	ClassDB::bind_method(D_METHOD("get_grip_multiplier"), &TireModelV4::get_grip_multiplier);
 }
+
 
 void TireModelV4::set_ambient_temperature(float p_val) {
 	m_ambient_temp = p_val;
@@ -29,6 +38,15 @@ void TireModelV4::set_temperature(float p_val) {
 	m_temperature = p_val;
 }
 
+void TireModelV4::set_heating_rate(float p_val) {
+	m_heating_rate = p_val > 0.0f ? p_val : 0.0f;
+}
+float TireModelV4::get_heating_rate() const { return m_heating_rate; }
+void TireModelV4::set_cooling_rate(float p_val) {
+	m_cooling_rate = p_val > 0.0f ? p_val : 0.0f;
+}
+float TireModelV4::get_cooling_rate() const { return m_cooling_rate; }
+
 void TireModelV4::reset() {
 	TireModelV3::reset(); // Clear relaxation state
 	m_temperature = m_ambient_temp; // Tire cools down to ambient
@@ -38,21 +56,22 @@ void TireModelV4::reset() {
 // The Grip Multiplier
 // 
 float TireModelV4::get_grip_multiplier() const {
-	const float cold_temp = 50.0f;
-	const float overheat_temp = 110.0f;
+	// Grip window anchored on m_optimal_temp (default 90 C).
+	// Below cold_temp: grip rises from 70% to 100% as temp approaches it.
+	// Optimal window: full grip.
+	// Above overheat_temp: grip falls off toward 80% at 130 C.
+	const float cold_temp      = m_optimal_temp - 40.0f;  // 50 C when optimal = 90
+	const float cold_floor     = cold_temp - 30.0f;       // 20 C
+	const float overheat_temp  = m_optimal_temp + 20.0f;  // 110 C
+	const float overheated_floor = overheat_temp + 20.0f; // 130 C
 
 	if (m_temperature < cold_temp) {
-		// Cold tires: 70% grip at 20C, rising to 100% at 50C
-		return 0.7f + 0.3f * ((m_temperature - 20.0f) / 30.0f);
+		return 0.7f + 0.3f * ((m_temperature - cold_floor) / (cold_temp - cold_floor));
 	} else if (m_temperature > overheat_temp) {
-		// Overheated: Grip drops off as temp climbs past 110C
-		// (e.g., at 130C, grip is 0.8)
-		return 1.0f - 0.2f * ((m_temperature - overheat_temp) / 20.0f);
+		return 1.0f - 0.2f * ((m_temperature - overheat_temp) / (overheated_floor - overheat_temp));
 	}
-	// Optimal window (50C to 110C)
 	return 1.0f;
 }
-
 // 
 // Override effective_mu to scale grip
 // 

@@ -34,6 +34,11 @@ public:
 	WheelOutput step(const WheelInput &p_input) override;
 	void reset() override;
 
+    void set_heating_rate(float p_val);
+    float get_heating_rate() const;
+    void set_cooling_rate(float p_val);
+    float get_cooling_rate() const;
+
 	void set_ambient_temperature(float p_val);
 	float get_ambient_temperature() const;
 	float get_temperature() const;

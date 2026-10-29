@@ -55,8 +55,8 @@ public:
 			float p_vertical_load, float p_friction, float p_radius,
 			float p_vel_long, float p_vel_lat, float p_steer_angle,
 			float p_camber_angle);
-
-	Dictionary step_gd_with_dt(float p_omega, float p_torque, float p_brake_torque,
-			float p_vertical_load, float p_friction, float p_radius,
-			float p_vel_long, float p_vel_lat, float p_steer_angle, float p_dt);
+    Dictionary step_gd_with_dt(float p_omega, float p_torque, float p_brake_torque,
+		float p_vertical_load, float p_friction, float p_radius,
+		float p_vel_long, float p_vel_lat, float p_steer_angle,
+		float p_camber_angle, float p_dt);
 };
