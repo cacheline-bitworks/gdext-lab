@@ -10,9 +10,7 @@ config_version=5
 
 [application]
 
-config/name="gdext-lab demo"
-run/main_scene="res://example.tscn"
-config/features=PackedStringArray("4.4", "Forward Plus")
+config/features=PackedStringArray("4.4", "C#", "GL Compatibility")
 
 [dotnet]
 
