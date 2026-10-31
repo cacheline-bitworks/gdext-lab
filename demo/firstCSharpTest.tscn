@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://bmcqtj1w3pplh"]
+
+[ext_resource type="Script" uid="uid://cwbyl7e1ilhnn" path="res://tests/FirstCSharpTest.cs" id="1_x0s58"]
+
+[node name="Node3D" type="Node3D"]
+
+[node name="Node" type="Node" parent="."]
+script = ExtResource("1_x0s58")

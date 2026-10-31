@@ -2,6 +2,7 @@
 
 #include <cmath>
 void SimulatedEntity::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("step", "delta"), &SimulatedEntity::step);
 	ClassDB::bind_method(D_METHOD("set_position", "position"), &SimulatedEntity::set_position);
 	ClassDB::bind_method(D_METHOD("get_position"), &SimulatedEntity::get_position);
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "position"), "set_position", "get_position");

@@ -6,7 +6,7 @@
 #include <godot_cpp/godot.hpp>
 
 #include "example_class.h"
-#include "frame_data.h"
+//#include "frame_data.h" 
 #include "simulated_entity.h"
 #include "tire_model.h"
 #include "simulation_scheduler.h"
@@ -39,7 +39,7 @@ void initialize_gdextension_types(ModuleInitializationLevel p_level)
 	GDREGISTER_CLASS(VehicleBodyT3);
 	GDREGISTER_CLASS(SimulationScheduler);
 	GDREGISTER_CLASS(ExampleClass);
-	GDREGISTER_CLASS(FrameData);
+	//GDREGISTER_CLASS(FrameData);// GDREGISTER_CLASS(FrameData);  // excluded from C# bindgen — benchmark class, not needed by frontend
 	GDREGISTER_CLASS(TireModelV3);
 	GDREGISTER_CLASS(TireModelV4);
 }
