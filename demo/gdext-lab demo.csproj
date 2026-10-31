@@ -1,0 +1,12 @@
+<Project Sdk="Godot.NET.Sdk/4.4.1">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>gdextlabdemo</RootNamespace>
+    <NoWarn>$(NoWarn);CS0108</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="GDExtensionBindgen/SimulationScheduler.cs" />
+    <Compile Remove="GDExtensionBindgen/FrameData.cs" />
+  </ItemGroup>
+</Project>
