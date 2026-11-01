@@ -57,7 +57,7 @@ void VehicleBody::apply_resistance(double p_dt) {
 	}
 
 	const float speed_after = m_velocity.length();
-	if (speed_after < 2.0f && m_throttle < 0.01f && m_brake_input < 0.01f) {
+	if (speed_after < 3.0f && m_throttle < 0.01f && m_brake_input < 0.01f) {
 		const float damping = 5.0f;
 		m_velocity *= (1.0f - damping * dt);
 		if (m_velocity.length() < 0.05f) {
