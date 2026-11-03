@@ -7,6 +7,11 @@ void VehicleBody::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_throttle"), &VehicleBody::get_throttle);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "throttle"), "set_throttle", "get_throttle");
 
+	ClassDB::bind_method(D_METHOD("get_wheel_slip_ratio", "index"), &VehicleBody::get_wheel_slip_ratio);
+	ClassDB::bind_method(D_METHOD("get_wheel_slip_angle", "index"), &VehicleBody::get_wheel_slip_angle);
+
+	ClassDB::bind_method(D_METHOD("set_space_rid", "rid"), &VehicleBody::set_space_rid);
+
 	ClassDB::bind_method(D_METHOD("set_brake", "value"), &VehicleBody::set_brake);
 	ClassDB::bind_method(D_METHOD("get_brake"), &VehicleBody::get_brake);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "brake"), "set_brake", "get_brake");
@@ -36,6 +41,8 @@ void VehicleBody::set_steer(float p_val) {
 }
 float VehicleBody::get_steer() const { return m_steer_input; }
 
+
+
 // 
 // Resistance: rolling + aero drag + low-speed damping
 // 
@@ -56,15 +63,22 @@ void VehicleBody::apply_resistance(double p_dt) {
 		}
 	}
 
-	const float speed_after = m_velocity.length();
-	if (speed_after < 3.0f && m_throttle < 0.01f && m_brake_input < 0.01f) {
-		const float damping = 5.0f;
-		m_velocity *= (1.0f - damping * dt);
-		if (m_velocity.length() < 0.05f) {
-			m_velocity = Vector3(0.0f, 0.0f, 0.0f);
-			// Wheels stop with the car. Without this, they keep "spinning"
-			// at whatever rate they had, and the tire model sees phantom
-			// slip velocity forever.
+	// Check ONLY horizontal speed (X and Z). Ignore the Y-axis bouncing.
+	float horizontal_speed = Vector2(m_velocity.x, m_velocity.z).length();
+	
+	if (horizontal_speed < 3.0f && m_throttle < 0.01f && m_brake_input < 0.01f) {
+		const float damping = 10.0f; // Increased damping to stop it faster
+		
+		// Apply damping only to X and Z
+		m_velocity.x *= (1.0f - damping * dt);
+		m_velocity.z *= (1.0f - damping * dt);
+		
+		// Snap to zero if it's practically stopped (below ~0.7 km/h)
+		if (Vector2(m_velocity.x, m_velocity.z).length() < 0.2f) {
+			m_velocity.x = 0.0f;
+			m_velocity.z = 0.0f;
+			
+			// Kill the wheel spin so the tire model doesn't push us
 			for (int i = 0; i < 4; i++) {
 				m_omega[i] = 0.0f;
 			}
@@ -117,4 +131,17 @@ void VehicleBody::set_all_tires(const Ref<TireModel> &p_tire) {
 	for (int i = 0; i < n; i++) {
 		set_corner_tire(i, p_tire);
 	}
+}
+void VehicleBody::set_space_rid(const RID &p_rid) {
+	m_space_rid = p_rid;
+}
+float VehicleBody::get_wheel_slip_ratio(int p_index) const {
+	if (p_index >= 0 && p_index < 4) return m_wheel_outputs[p_index].slip_ratio;
+    return 0.0f;
+	
+
+}
+float VehicleBody::get_wheel_slip_angle(int p_index) const {
+	if (p_index >= 0 && p_index < 4) return m_wheel_outputs[p_index].slip_angle;
+	return 0.0f;
 }

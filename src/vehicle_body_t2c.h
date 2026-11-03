@@ -14,9 +14,9 @@ using namespace godot;
 // CornerConfigT2c - per-corner suspension parameters
 // 
 struct CornerConfigT2c {
-	float spring_rate = 65000.0f;
-	float damper_bump = 4200.0f;
-	float damper_rebound = 8500.0f;
+	float spring_rate = 15000.0f;
+	float damper_bump = 2000.0f;
+	float damper_rebound = 6000.0f;
 };
 
 // 
@@ -28,7 +28,7 @@ class VehicleBodyT2c : public VehicleBody {
 	GDCLASS(VehicleBodyT2c, VehicleBody)
 
 	// Chassis-specific
-	float m_eq_height = 0.5f;
+	float m_eq_height = 0.3f;
 	Vector3 m_angular_velocity;
 	Quaternion m_orientation;
 

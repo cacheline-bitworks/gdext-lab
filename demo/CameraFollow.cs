@@ -3,10 +3,10 @@ using GDExtensionBindgen;
 
 public partial class CameraFollow : Camera3D
 {
-    [Export] public float Distance = 8.0f;
+    [Export] public float Distance = 10.0f;
     [Export] public float Height = 3.0f;
     [Export] public float LookHeight = 1.0f;
-    [Export] public float LerpSpeed = 5.0f;
+    [Export] public float LerpSpeed = 4.0f;
 
     private SimulatedEntity? _car;
 
@@ -40,11 +40,16 @@ public partial class CameraFollow : Camera3D
         LookAt(LookPosition(), Vector3.Up);
     }
 
-    public override void _Process(double delta)
+   
+    public override void _PhysicsProcess(double delta)
     {
         if (_car == null) return;
         var desired = TargetPosition();
+        
+        // Since physics runs at 60Hz, we can use a fixed lerp factor
+        // (LerpSpeed * 60 is roughly equivalent to LerpSpeed * 1/delta at 60fps)
         var t = Mathf.Clamp(LerpSpeed * (float)delta, 0.0f, 1.0f);
+        
         GlobalPosition = GlobalPosition.Lerp(desired, t);
         LookAt(LookPosition(), Vector3.Up);
     }

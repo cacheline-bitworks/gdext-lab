@@ -1,5 +1,9 @@
 #include "vehicle_body_t2c.h"
 
+#include <godot_cpp/classes/physics_server3d.hpp>
+#include <godot_cpp/classes/physics_direct_space_state3d.hpp>
+#include <godot_cpp/classes/physics_ray_query_parameters3d.hpp>
+
 #include <cmath>
 
 namespace {
@@ -232,12 +236,42 @@ void VehicleBodyT2c::step(double p_delta) {
 	// --- 6. Per-corner ---
 	WheelOutput tire_out[4];
 
+	float max_suspension_travel = 0.3f; // How far the suspension can extend
+
 	for (int i = 0; i < 4; i++) {
 		const Vector3 body_c = get_body_corner(i, m_cg_to_front, m_cg_to_rear,
 				m_track_width, m_eq_height);
 		const Vector3 corner_world = m_position + m_orientation.xform(body_c);
-		const float compression = -corner_world.y;
+		
+				// --- RAYCAST SUSPENSION ---
+		float compression = -corner_world.y; // fallback
+		Vector3 contact_world(corner_world.x, 0.0f, corner_world.z); // fallback
+		Vector3 contact_normal(0.0f, 1.0f, 0.0f); // fallback (flat ground)
+		bool on_ground = false;
 
+		if (m_space_rid.is_valid()) {
+			// Start the ray 0.5m above the chassis to avoid starting inside a ramp
+			Vector3 ray_start = corner_world + Vector3(0, 0.5f, 0);
+			Vector3 ray_end = corner_world + Vector3(0, -(m_wheel_radius + 1.0f), 0);
+			
+			Ref<PhysicsRayQueryParameters3D> query = PhysicsRayQueryParameters3D::create(ray_start, ray_end);
+			Dictionary result = PhysicsServer3D::get_singleton()->space_get_direct_state(m_space_rid)->intersect_ray(query);
+
+			if (result.size() > 0) {
+				on_ground = true;
+				contact_world = result["position"];
+				contact_normal = result["normal"]; // <-- GET THE RAMP ANGLE!
+				
+				// Distance from chassis corner to the ground
+				float distance = corner_world.distance_to(contact_world);
+				compression = m_eq_height - distance; 
+				
+				if (i == 0) print_line(vformat("Hit! Dist: %.2f, Comp: %.2f, Normal: %s", distance, compression, contact_normal));
+			} else {
+				compression = -max_suspension_travel;
+				if (i == 0) print_line("MISS! Airborne.");
+			}
+		}
 		const int opposite = (i == 0) ? 1 : (i == 1) ? 0 : (i == 2) ? 3 : 2;
 		const float extra_force = extra_corner_force(i, compressions[i], compressions[opposite]);
 
@@ -257,13 +291,17 @@ void VehicleBodyT2c::step(double p_delta) {
 				m_cg_to_rear, m_wheel_base);
 
 		float tire_load = static_load + spring_f + damper_f + extra_force;
-		if (tire_load < 0.0f) tire_load = 0.0f;
+		// If we are in the air, the tire has zero load.
+		if (!on_ground || tire_load < 0.0f) {
+			tire_load = 0.0f;
+		}
 
-		const Vector3 suspension_force_world(0.0f, static_load + spring_f + damper_f + extra_force, 0.0f);
+		// The suspension pushes perpendicular to the ground, not just straight up!
+		const Vector3 suspension_force_world = contact_normal * (static_load + spring_f + damper_f + extra_force);
 		total_force_world += suspension_force_world;
 		total_torque_world += r.cross(suspension_force_world);
 
-		const Vector3 contact_world(corner_world.x, 0.0f, corner_world.z);
+		
 		const Vector3 r_contact = contact_world - m_position;
 		const Vector3 contact_vel_world = m_velocity + omega_world.cross(r_contact);
 		const Vector3 contact_vel_body = m_orientation.inverse().xform(contact_vel_world);
@@ -286,6 +324,7 @@ void VehicleBodyT2c::step(double p_delta) {
 		in.velocity_lateral = contact_vel_body.z;
 
 		tire_out[i] = m_tires[i]->step(in);
+		m_wheel_outputs[i] = tire_out[i];
 
 		const float cs = std::cos(corner_steer);
 		const float ss = std::sin(corner_steer);
@@ -307,11 +346,11 @@ void VehicleBodyT2c::step(double p_delta) {
 	const Vector3 accel_world = total_force_world / m_mass;
 	m_velocity += accel_world * dt;
 	m_position += m_velocity * dt;
-
-	if (m_position.y < m_eq_height * 0.3f) {
-		m_position.y = m_eq_height * 0.3f;
-		if (m_velocity.y < 0.0f) m_velocity.y = 0.0f;
-	}
+     // --- not usefull anymore ---
+	//if (m_position.y < m_eq_height * 0.3f) {
+	//	m_position.y = m_eq_height * 0.3f;
+	//	if (m_velocity.y < 0.0f) m_velocity.y = 0.0f;
+	//}
 
 	// --- 9. Angular integration ---
 	const Vector3 torque_body_raw = m_orientation.inverse().xform(total_torque_world);
@@ -339,7 +378,15 @@ void VehicleBodyT2c::step(double p_delta) {
 		(torque_body.y - gyro.y) * inv_I.y,
 		(torque_body.z - gyro.z) * inv_I.z
 	);
-	m_angular_velocity += domega * dt;
+		m_angular_velocity += domega * dt;
+
+	// --- ANTI-CREEP ROTATION SNAP ---
+	// If the car is practically stopped, and the driver is not steering or accelerating,
+	// completely kill the angular velocity. This prevents the tires from generating
+	// phantom lateral forces that rotate the car at idle.
+	if (m_velocity.length() < 0.5f && m_throttle < 0.01f && m_brake_input < 0.01f && std::fabs(m_steer_input) < 0.05f) {
+		m_angular_velocity = Vector3(0.0f, 0.0f, 0.0f);
+	}
 
 	// --- 10. Quaternion integration ---
 	const Vector3 delta_rot = m_angular_velocity * dt;
